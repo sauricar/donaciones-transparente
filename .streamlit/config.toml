@@ -1,0 +1,64 @@
+[theme]
+base = "light"
+
+# Verde Esmeralda: acciones principales. Streamlit pinta el texto de los
+# botones primarios en blanco sobre este color — blanco sobre #2E7D32 da
+# 5.13:1, suficiente para texto normal.
+primaryColor = "#2E7D32"
+
+# Blanco de fondo general, gris claro para elementos secundarios (widgets,
+# bloques de código, encabezados de tabla). El orden importa: el secundario
+# debe ser el más oscuro de los dos.
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F5F5F5"
+
+# Gris oscuro para texto: 13.2:1 sobre blanco, contraste suave que no cansa
+# la vista como el negro puro.
+textColor = "#263238"
+
+linkColor = "#1565C0"
+
+# 3.35:1 sobre blanco. Un borde más suave (#CFD8DC daba 1.45:1) no alcanza el
+# mínimo de 3:1 que WCAG pide para los bordes que definen un control: en un
+# campo de texto, el borde ES lo que lo identifica como campo.
+borderColor = "#78909C"
+baseRadius = "12px"
+showWidgetBorder = true
+
+dataframeHeaderBackgroundColor = "#F5F5F5"
+# Las líneas internas de una tabla son estructura decorativa, no un control:
+# no les aplica el mínimo de 3:1, así que van suaves para no ensuciar la lectura.
+dataframeBorderColor = "#CFD8DC"
+
+# SOLO los colores que de verdad son series de datos. Naranja y rojo quedan
+# fuera a propósito: son estados (aviso / error), no identidad de serie, y
+# meterlos acá hacía que Streamlit pudiera asignarlos como serie — donde el
+# naranja oscurecido colisiona con el rojo bajo daltonismo (ΔE 1.3).
+chartCategoricalColors = ["#1565C0", "#2E7D32"]
+
+# Estos alimentan la sintaxis :blue[...] / :green[...] de markdown, así que el
+# color semántico en el texto sale de la paleta sin una línea de CSS.
+blueColor = "#1565C0"
+greenColor = "#2E7D32"
+redColor = "#C62828"
+
+# Sin esto Streamlit oscurece el color al usarlo como texto (el azul salía
+# #0E417C), y el punto de la tarjeta KPI dejaba de coincidir con la línea de la
+# gráfica — que es justamente lo que ese punto debe indicar. Ambos ya superan
+# 4.5:1 sobre blanco, así que fijarlos no cuesta legibilidad.
+blueTextColor = "#1565C0"
+greenTextColor = "#2E7D32"
+
+# El gris por defecto de Streamlit para :gray[...] se compone a #83858C sobre
+# blanco: 3.69:1, por debajo del mínimo de 4.5:1. Este pasa sobre los dos
+# fondos (5.40:1 sobre blanco, 4.95:1 sobre el gris secundario).
+grayColor = "#546E7A"
+grayTextColor = "#546E7A"
+
+# El naranja de la paleta se conserva para fondos y elementos decorativos, pero
+# como texto da 2.65:1 sobre blanco. orangeTextColor es la variante oscurecida
+# que Streamlit usa cuando el naranja es texto: 5.02:1, ya legible.
+orangeColor = "#F57F17"
+orangeTextColor = "#B45309"
+
+font = "sans-serif"

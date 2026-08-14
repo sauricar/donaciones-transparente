@@ -1,0 +1,26 @@
+# ─── SECRETOS: nunca deben salir de esta máquina ───────────────────────────
+# Contiene la llave service_role de Supabase (salta toda la seguridad de la
+# base) y la contraseña de operador. En Streamlit Cloud estos valores se
+# cargan desde Settings → Secrets, NO desde el repositorio.
+.streamlit/secrets.toml
+.env
+*.pem
+*.key
+
+# ─── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ─── Herramientas locales ──────────────────────────────────────────────────
+.claude/
+.vscode/
+.idea/
+
+# ─── Sistema operativo ─────────────────────────────────────────────────────
+Thumbs.db
+desktop.ini
+.DS_Store
