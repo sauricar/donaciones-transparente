@@ -1,6 +1,13 @@
-streamlit>=1.52
-supabase
-pandas
-plotly
-pillow
-bcrypt
+# Pisos de versión, no versiones exactas: Streamlit Cloud instala lo más nuevo
+# compatible y así el tablero no se rompe por una versión vieja, pero tampoco
+# queda atado a versiones que quizá no resuelvan en su intérprete.
+# Los pisos son las versiones contra las que se probó todo (agosto 2026).
+
+# 1.52 trajo query_params en st.page_link/st.switch_page, que es como el
+# selector de campañas pasa el slug al tablero. Probado en 1.61.
+streamlit>=1.61
+supabase>=2.31
+pandas>=2.2
+plotly>=6.0
+pillow>=11.0
+bcrypt>=4.1
