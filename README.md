@@ -9,6 +9,11 @@ afectó a Colombia, y está hecha para que **varias personas** puedan usarla:
 cada una tiene su propia campaña, su propio enlace público y sus propias
 credenciales.
 
+📘 **¿Vas a administrar una instalación (propia o de otra persona)?** Empezá
+por el [**Manual del administrador**](MANUAL_ADMINISTRADOR.md) — cómo crear
+campañas, cargar donaciones, facturas y evidencias, y desplegar tu propia
+copia desde cero.
+
 ## Qué muestra
 
 - **Cuánto se recibió y cuánto se ejecutó**, con el porcentaje ya convertido en ayuda.
@@ -38,6 +43,10 @@ migration_*.sql     Migraciones sobre una base existente, en orden
 ```
 
 ## Puesta en marcha
+
+Versión rápida para correrlo en local — la guía completa para desplegarlo
+(incluyendo Streamlit Community Cloud) está en el
+[Manual del administrador, sección 1](MANUAL_ADMINISTRADOR.md#1-antes-de-empezar-tenés-instancia-propia-o-vas-a-usar-una-copia).
 
 1. Crear un proyecto en [Supabase](https://supabase.com) y ejecutar `schema.sql`
    en el SQL Editor. Sobre una base que ya tenga datos, correr en cambio las
