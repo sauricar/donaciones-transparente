@@ -102,6 +102,46 @@ def get_campaigns_admin() -> list[dict]:
     )
 
 
+def get_global_totals(campaign_ids: list[str]) -> dict:
+    """Totales sumados de un conjunto de campañas, para la portada.
+
+    Dos consultas en vez de una por campaña: los ítems llegan con el
+    campaign_id de su factura embebido, ya que invoice_items no lo tiene
+    propio. Se agrega en Python porque el conjunto es chico; si algún día
+    fueran decenas de miles de filas, esto debería pasar a una vista o a una
+    función de agregación en Postgres."""
+    vacio = {"donado": 0.0, "ejecutado": 0.0, "pendiente": 0.0, "articulos": 0.0, "aportes": 0}
+    if not campaign_ids:
+        return vacio
+
+    permitidas = set(campaign_ids)
+
+    donaciones = (
+        get_client().table("donations").select("amount,campaign_id").limit(20000).execute().data
+    )
+    propias = [d for d in donaciones if d["campaign_id"] in permitidas]
+
+    items = (
+        get_client()
+        .table("invoice_items")
+        .select("quantity,total_price,invoices!inner(campaign_id)")
+        .limit(20000)
+        .execute()
+        .data
+    )
+    items_propios = [i for i in items if (i.get("invoices") or {}).get("campaign_id") in permitidas]
+
+    donado = sum(float(d["amount"]) for d in propias)
+    ejecutado = sum(float(i["total_price"]) for i in items_propios)
+    return {
+        "donado": donado,
+        "ejecutado": ejecutado,
+        "pendiente": donado - ejecutado,
+        "articulos": sum(float(i["quantity"]) for i in items_propios),
+        "aportes": len(propias),
+    }
+
+
 def get_campaign_by_slug(slug: str) -> dict | None:
     rows = _campaign_rows(
         lambda columns: get_admin_client().table("campaigns").select(columns).eq("slug", slug)

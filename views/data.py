@@ -36,6 +36,13 @@ def load_used_categories(campaign_id: str) -> list[str]:
 
 
 @st.cache_data(ttl=60)
+def load_global_totals(campaign_ids: tuple[str, ...]):
+    """La clave del caché es una tupla (hashable) de ids de campaña, así que
+    cambia sola si se activa o pausa una campaña."""
+    return db.get_global_totals(list(campaign_ids))
+
+
+@st.cache_data(ttl=60)
 def load_invoice_picker(campaign_id: str):
     """Facturas con sus artículos + fotos ya vinculadas, para armar el selector
     de factura. Cacheado porque el formulario de evidencias se re-ejecuta en
@@ -50,3 +57,4 @@ def clear_caches():
     load_data.clear()
     load_used_categories.clear()
     load_invoice_picker.clear()
+    load_global_totals.clear()

@@ -118,9 +118,11 @@ con:
 - Los mismos campos de arriba, editables, más el interruptor **"Activa"**
   (desactivarla la oculta del selector público y del acceso directo, sin
   borrar sus datos).
-- La sección de **foto de perfil** (subís una imagen y tocás **"Guardar
-  foto"**; **"Quitar foto"** la elimina también del almacenamiento).
 - El botón **"Restablecer contraseña"**, para cuando el encargado la olvida.
+
+> La **foto** de quien lidera la campaña no se sube desde acá: la administra
+> cada campaña desde su propio panel, en la pestaña "⚙️ Mi campaña"
+> ([sección 7](#7-tu-foto-en-el-tablero)).
 
 ### El bloque "Cómo aportar"
 
@@ -221,7 +223,21 @@ el registro como el archivo de la foto.
 
 ---
 
-## 7. Compartir el tablero
+## 7. Tu foto en el tablero
+
+Pestaña **"⚙️ Mi campaña"**: subís una foto tuya y aparece en el banner de tu
+campaña, junto a los datos para aportar. Ponerle cara a quien recibe y ejecuta
+el dinero le da confianza a quien está decidiendo si ayuda.
+
+**"Guardar foto"** la publica; **"Quitar foto"** la elimina, también del
+almacenamiento. Si subís una nueva, la anterior se borra sola.
+
+Cada campaña administra su propia foto — el operador del sitio no tiene que
+hacerlo por vos.
+
+---
+
+## 8. Compartir el tablero
 
 El enlace público de una campaña es
 `https://tu-instancia.streamlit.app/campana?c=<slug>` — lo encontrás en el
@@ -235,7 +251,7 @@ administra.
 
 ---
 
-## 8. Preguntas frecuentes
+## 9. Preguntas frecuentes
 
 **¿Puedo tener más de una campaña activa a la vez?** Sí, son completamente
 independientes: cada una con sus propias donaciones, facturas, fotos,

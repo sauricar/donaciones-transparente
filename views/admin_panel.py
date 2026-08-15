@@ -5,6 +5,7 @@ import streamlit as st
 
 import database as db
 from views.data import clear_caches, load_invoice_picker, load_used_categories
+from views.public_dashboard import render_top_nav
 from views.theme import CATEGORY_OPTIONS, format_currency, format_date
 
 
@@ -456,6 +457,60 @@ def render_evidence_form():
     render_gallery_management(campaign, invoice_label, invoice_choices)
 
 
+def render_campaign_photo_form():
+    """Foto de quien lidera la campaña. Cada campaña administra la suya; el
+    operador del sitio no tiene que hacerlo por ella.
+
+    Va fuera de un st.form porque un file_uploader dentro de un formulario sólo
+    se procesa al enviarlo, y acá conviene que la foto se suba y se vea al toque."""
+    campaign = st.session_state.campaign
+
+    try:
+        actual = db.get_campaign_by_slug(campaign["slug"]) or {}
+    except Exception as error:
+        st.error(f"No se pudo leer la campaña: {error}")
+        return
+    foto = actual.get("photo_url")
+
+    st.markdown("**Tu foto en el tablero público**")
+    st.caption(
+        "Aparece en el banner de tu campaña, junto a los datos para aportar. "
+        "Ponerle cara a la campaña le da confianza a quien está decidiendo si ayuda."
+    )
+
+    cols = st.columns([1, 3], vertical_alignment="center")
+    with cols[0]:
+        if foto:
+            st.image(foto, width="stretch")
+        else:
+            st.caption("Todavía sin foto")
+    with cols[1]:
+        subida = st.file_uploader(
+            "Elegí una foto (JPG/PNG)", type=["jpg", "jpeg", "png"], key="campaign_photo"
+        )
+        acciones = st.columns(2)
+        with acciones[0]:
+            if st.button("Guardar foto", disabled=subida is None, width="stretch"):
+                try:
+                    db.upload_campaign_photo(
+                        campaign_id=campaign["id"],
+                        campaign_slug=campaign["slug"],
+                        file_bytes=subida.getvalue(),
+                        original_filename=subida.name,
+                        content_type=subida.type,
+                    )
+                    st.success("Foto actualizada.")
+                    clear_caches()
+                    st.rerun()
+                except Exception as error:
+                    st.error(f"No se pudo subir la foto: {error}")
+        with acciones[1]:
+            if foto and st.button("Quitar foto", width="stretch"):
+                db.remove_campaign_photo(campaign["id"])
+                clear_caches()
+                st.rerun()
+
+
 def render_gallery_management(campaign: dict, invoice_label, invoice_choices):
     """Fotos ya publicadas: permite corregir el título, reasignar la factura a
     la que pertenecen, y borrar. La miniatura va en el encabezado plegado para
@@ -546,29 +601,23 @@ def render():
 
     campaign = st.session_state.campaign
 
-    header_cols = st.columns([4, 1])
+    # Accesos arriba de todo, incluido el del operador: esta pantalla ya está
+    # detrás de credenciales, así que acá sí corresponde mostrarlo.
+    render_top_nav(include_operator=True)
+
+    header_cols = st.columns([4, 1], vertical_alignment="center")
     with header_cols[0]:
         st.title("🔒 Panel de Gestión")
         st.caption(f"Campaña: **{campaign['name']}** — registra donaciones, facturas y evidencias.")
     with header_cols[1]:
-        st.write("")
         if st.button("Cerrar sesión", width="stretch"):
             st.session_state.campaign = None
             st.rerun()
 
-    nav_cols = st.columns([3, 1])
-    with nav_cols[0]:
-        if selector_page is not None:
-            st.page_link(selector_page, label="← Ver selector de campañas")
-    with nav_cols[1]:
-        operator_page = st.session_state.get("_operator_page")
-        if operator_page is not None:
-            st.page_link(operator_page, label="Administración", icon="🛠️")
-
     st.divider()
 
-    tab_donacion, tab_factura, tab_evidencia = st.tabs(
-        ["💰 Donaciones", "🧾 Facturas", "📸 Cargar Evidencias"]
+    tab_donacion, tab_factura, tab_evidencia, tab_campana = st.tabs(
+        ["💰 Donaciones", "🧾 Facturas", "📸 Cargar Evidencias", "⚙️ Mi campaña"]
     )
     with tab_donacion:
         render_donation_form()
@@ -576,3 +625,5 @@ def render():
         render_invoice_form()
     with tab_evidencia:
         render_evidence_form()
+    with tab_campana:
+        render_campaign_photo_form()

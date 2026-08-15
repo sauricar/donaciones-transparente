@@ -61,45 +61,6 @@ def _friendly_update_error(error: Exception) -> str:
     return f"No se pudo guardar: {message}"
 
 
-def render_photo_uploader(campaign: dict):
-    """Foto de quien lidera la campaña. Va aparte del formulario de edición
-    porque un file_uploader dentro de un st.form sólo se procesa al enviar, y
-    acá conviene que la foto se suba y se vea de inmediato."""
-    current = campaign.get("photo_url")
-    cols = st.columns([1, 3], vertical_alignment="center")
-    with cols[0]:
-        if current:
-            st.image(current, width=90)
-        else:
-            st.caption("Sin foto")
-    with cols[1]:
-        uploaded = st.file_uploader(
-            "Foto de quien lidera la campaña",
-            type=["jpg", "jpeg", "png"],
-            key=f"photo_{campaign['id']}",
-            help="Se muestra en el banner del tablero público, para ponerle cara a la campaña.",
-        )
-        action_cols = st.columns(2)
-        with action_cols[0]:
-            if st.button("Guardar foto", key=f"savephoto_{campaign['id']}", disabled=uploaded is None):
-                try:
-                    db.upload_campaign_photo(
-                        campaign_id=campaign["id"],
-                        campaign_slug=campaign["slug"],
-                        file_bytes=uploaded.getvalue(),
-                        original_filename=uploaded.name,
-                        content_type=uploaded.type,
-                    )
-                    st.success("Foto actualizada.")
-                    st.rerun()
-                except Exception as error:
-                    st.error(f"No se pudo subir la foto: {error}")
-        with action_cols[1]:
-            if current and st.button("Quitar foto", key=f"delphoto_{campaign['id']}"):
-                db.remove_campaign_photo(campaign["id"])
-                st.rerun()
-
-
 def render_campaign_list():
     st.markdown("**Campañas existentes**")
     campaigns = db.get_campaigns_admin()
@@ -154,7 +115,10 @@ def render_campaign_list():
                         except Exception as error:
                             st.error(_friendly_update_error(error))
 
-            render_photo_uploader(campaign)
+            st.caption(
+                "La foto de quien lidera la campaña se sube desde el panel de gestión "
+                "de la propia campaña, no desde acá."
+            )
 
             with st.popover("Restablecer contraseña"):
                 with st.form(f"reset_password_{campaign['id']}"):

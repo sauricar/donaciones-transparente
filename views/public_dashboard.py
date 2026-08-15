@@ -498,14 +498,55 @@ def render_photo_grid(photos: list[dict], columns_count: int = 3):
 
 
 # Las etiquetas viven acá para que el selector y el despacho no puedan
-# desincronizarse: una sola fuente para ambos.
+# desincronizarse: una sola fuente para ambos. Son cortas a propósito: en
+# celular las etiquetas largas partían la fila de botones en tres renglones
+# desparejos y se leía como un amontonamiento.
 SECCIONES = (
-    "📦 Lo que se entregó",
-    "🧾 Facturas y respaldos",
-    "💚 Aportes recibidos",
+    "📦 Entregado",
+    "🧾 Facturas",
+    "💚 Aportes",
     "📸 Galería",
-    "🧮 Qué logró tu aporte",
+    "🧮 Tu aporte",
 )
+
+
+def render_top_nav(include_operator: bool = True):
+    """Accesos a los paneles, arriba de todo y alineados a la derecha.
+
+    Antes vivían al pie de la página: quien administra tenía que bajar hasta
+    el final para encontrarlos. El enlace al panel de operador nunca aparece
+    en pantallas públicas — sólo dentro del panel de una campaña."""
+    selector_page = st.session_state.get("_selector_page")
+    admin_page = st.session_state.get("_admin_page")
+    operator_page = st.session_state.get("_operator_page")
+
+    destinos = []
+    if selector_page is not None:
+        destinos.append((selector_page, "Campañas", ":material/home:"))
+    if admin_page is not None:
+        destinos.append((admin_page, "Gestión", ":material/lock:"))
+    if include_operator and operator_page is not None:
+        destinos.append((operator_page, "Administración", ":material/settings:"))
+    if not destinos:
+        return
+
+    st.html(
+        """
+        <style>
+          .st-key-top_nav a[data-testid="stPageLink-NavLink"] {
+              border: 1px solid var(--color-border, #CFD8DC);
+              border-radius: 10px;
+              padding: 0.45rem 0.7rem;
+              justify-content: center;
+          }
+        </style>
+        """
+    )
+    with st.container(key="top_nav"):
+        columnas = st.columns([6] + [1.3] * len(destinos), vertical_alignment="center")
+        for columna, (pagina, etiqueta, icono) in zip(columnas[1:], destinos):
+            with columna:
+                st.page_link(pagina, label=etiqueta, icon=icono, width="stretch")
 
 
 def section_delivered(items: list[dict]):
@@ -712,6 +753,8 @@ def render():
         show_connection_error(error)
         return
 
+    render_top_nav(include_operator=False)
+
     st.title(f"🤝 {campaign['name']}")
     if campaign.get("description"):
         st.caption(campaign["description"])
@@ -813,11 +856,6 @@ def render():
         section_impact(items, total_donated, total_spent)
 
     st.divider()
-    admin_page = st.session_state.get("_admin_page")
-    footer_cols = st.columns([5, 1, 1])
-    if selector_page is not None:
-        with footer_cols[1]:
-            st.page_link(selector_page, label="Campañas", icon="🏠")
-    if admin_page is not None:
-        with footer_cols[2]:
-            st.page_link(admin_page, label="Gestión", icon="⚙️")
+    st.caption(
+        "Los accesos a los paneles de gestión están arriba, en la parte superior de la página."
+    )
