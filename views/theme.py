@@ -52,6 +52,11 @@ CATEGORICAL_PALETTE = [SERIES_MONEY, SERIES_IMPACT]
 BANNER_BG = "#E8F5E9"
 BANNER_BORDER = SERIES_IMPACT
 
+# Texto del botón activo en la navegación por secciones. Un paso más oscuro
+# que el verde de marca: sobre el fondo tenue del botón activo (#eaf2ea) el
+# verde de acento da 4.49:1 y éste 6.89:1.
+NAV_ACTIVE_INK = "#1B5E20"
+
 # --- Status (reserved meaning; always paired with an icon or label) --------
 STATUS_WARNING = "#F57F17"
 STATUS_CRITICAL = "#C62828"

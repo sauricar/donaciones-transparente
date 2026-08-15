@@ -8,8 +8,9 @@ import database as db
 from views.data import load_data, show_connection_error
 from views.theme import (
     BANNER_BG, BANNER_BORDER, FLAG_BLUE, FLAG_RED, FLAG_YELLOW, INK_SOFT,
-    SERIES_IMPACT, SERIES_MONEY, SURFACE, apply_chart_theme, format_currency,
-    format_date, format_day_short, format_number, format_signed_currency,
+    NAV_ACTIVE_INK, SERIES_IMPACT, SERIES_MONEY, SURFACE, apply_chart_theme,
+    format_currency, format_date, format_day_short, format_number,
+    format_signed_currency,
 )
 
 
@@ -496,6 +497,193 @@ def render_photo_grid(photos: list[dict], columns_count: int = 3):
                 st.caption(photo["description"])
 
 
+# Las etiquetas viven acá para que el selector y el despacho no puedan
+# desincronizarse: una sola fuente para ambos.
+SECCIONES = (
+    "📦 Lo que se entregó",
+    "🧾 Facturas y respaldos",
+    "💚 Aportes recibidos",
+    "📸 Galería",
+    "🧮 Qué logró tu aporte",
+)
+
+
+def section_delivered(items: list[dict]):
+    aggregated = aggregate_items(items)
+    if aggregated.empty:
+        st.info("Todavía no se han registrado artículos.")
+        return
+
+    st.markdown("**Cada artículo que se compró y entregó**")
+    display_df = pd.DataFrame(
+        {
+            "Artículo": aggregated["name"],
+            "Categoría": aggregated["category"],
+            "Cantidad": [format_number(q) for q in aggregated["quantity"]],
+            "Invertido": [format_currency(v) for v in aggregated["total_price"]],
+        }
+    )
+    st.dataframe(display_df, hide_index=True, width="stretch")
+
+    st.write("")
+    st.markdown("**En qué tipo de ayuda se invirtió**")
+    render_category_chart(items)
+
+
+def section_invoices(invoices: list[dict], items: list[dict], photos: list[dict]):
+    if not invoices:
+        st.info("Aún no se han publicado facturas.")
+        return
+
+    st.caption(
+        "Cada compra con su factura y, cuando existe, la foto de la entrega. "
+        "Nada de lo que aparece arriba sale de otro lado."
+    )
+    photos_by_invoice = {}
+    for photo in photos:
+        if photo.get("invoice_id"):
+            photos_by_invoice.setdefault(photo["invoice_id"], []).append(photo)
+
+    for invoice in invoices:
+        invoice_items = [i for i in items if i["invoice_id"] == invoice["id"]]
+        invoice_total = sum(i["total_price"] for i in invoice_items)
+        linked_photos = photos_by_invoice.get(invoice["id"], [])
+        evidence_flag = f"  ·  📸 {len(linked_photos)}" if linked_photos else ""
+        title = (
+            f"{invoice['merchant']} — {format_date(invoice['invoice_date'])} — "
+            f"{format_currency(invoice_total)}{evidence_flag}"
+        )
+        with st.expander(title):
+            if invoice.get("notes"):
+                st.caption(invoice["notes"])
+            if not invoice_items:
+                st.info("Esta factura no tiene ítems registrados.")
+            else:
+                items_df = pd.DataFrame(
+                    {
+                        "Artículo": [i["item_name"] for i in invoice_items],
+                        "Categoría": [i["category"] or "Sin categoría" for i in invoice_items],
+                        "Cantidad": [i["quantity"] for i in invoice_items],
+                        "Valor Unitario": [format_currency(i["unit_price"]) for i in invoice_items],
+                        "Impuestos": [format_currency(i["tax_amount"]) for i in invoice_items],
+                        "Subtotal": [format_currency(i["total_price"]) for i in invoice_items],
+                    }
+                )
+                st.dataframe(items_df, hide_index=True, width="stretch")
+
+            if linked_photos:
+                st.markdown("**Evidencia de esta compra**")
+                render_photo_grid(linked_photos, columns_count=3)
+
+
+def section_contributions(donations: list[dict], invoices: list[dict], items: list[dict]):
+    if not donations:
+        st.info("Aún no se han registrado aportes.")
+        return
+
+    st.markdown("**El ritmo día por día**")
+    render_daily_activity(donations, invoices, items)
+
+    st.write("")
+    st.markdown("**Cada aporte recibido**")
+    st.caption("No se guarda ningún dato personal de quienes donaron.")
+    donations_df = pd.DataFrame(donations).sort_values("donation_date", ascending=False)
+    display_df = pd.DataFrame(
+        {
+            "Fecha": donations_df["donation_date"].apply(format_date),
+            "Monto": donations_df["amount"].apply(format_currency),
+            "Notas": donations_df["notes"].fillna("—"),
+        }
+    )
+    st.dataframe(display_df, hide_index=True, width="stretch")
+
+
+def section_gallery(photos: list[dict]):
+    if not photos:
+        st.info("Aún no se han publicado fotos.")
+        return
+    st.caption("Fotos de las compras y las entregas.")
+    render_photo_grid(photos)
+
+
+def section_impact(items: list[dict], total_donated: float, total_spent: float):
+    catalog = purchase_catalog(items)
+    if not catalog:
+        st.info("Todavía no hay compras registradas para hacer el cálculo.")
+        return
+
+    # --- 1. Lo ya comprado: hechos, no supuestos ---------------------------
+    st.markdown("**Tu aporte, reflejado en lo que ya se compró**")
+    st.caption(
+        "Escribí lo que aportaste y te mostramos una combinación equivalente "
+        "de artículos que ya están comprados y entregados."
+    )
+    contribution = st.number_input(
+        "Lo que aportaste", min_value=0, value=100000, step=10000, format="%d",
+    )
+
+    if contribution <= 0:
+        st.info("Ingresá un monto mayor a cero.")
+    else:
+        if total_donated > 0:
+            share = contribution / total_donated * 100
+            st.markdown(f"Tu aporte fue el **{share:.1f}%** de todo lo recaudado.")
+
+        tope = min(contribution, total_spent)
+        if contribution > total_spent:
+            st.caption(
+                f"Tu aporte supera lo ejecutado hasta hoy ({format_currency(total_spent)}), "
+                "así que la combinación se arma sobre ese tope."
+            )
+
+        seed = st.session_state.setdefault("basket_seed_real", 0)
+        # La semilla depende del monto para que el resultado no cambie
+        # solo/por teclear, y del contador para el botón de recombinar.
+        basket, spent = build_basket(
+            catalog, tope, random.Random(f"{int(tope)}-{seed}"), respect_stock=True
+        )
+        if not basket:
+            st.warning(
+                "Con ese monto no alcanzaba ni un artículo completo por sí solo — "
+                "pero sumado al de los demás, sí hizo la diferencia."
+            )
+        else:
+            st.success(f"Con {format_currency(tope)} se compró, por ejemplo:")
+            render_basket(basket, spent, amount=tope, stock_limited=True)
+            if st.button("Ver otra combinación", key="reshuffle_real"):
+                st.session_state.basket_seed_real += 1
+                st.rerun()
+            st.caption(
+                "Es una forma de dimensionar el aporte: todos estos artículos existen "
+                "y están en las facturas publicadas."
+            )
+
+    st.divider()
+
+    # --- 2. Lo que vendría después: estimación clara como tal --------------
+    st.markdown("**¿Y si quisieras aportar más?**")
+    st.caption("Esto sí es una estimación, con los precios que se han pagado hasta ahora.")
+    extra = st.number_input(
+        "Monto que estás pensando aportar", min_value=0, value=50000, step=10000, format="%d",
+    )
+
+    if extra > 0:
+        seed_extra = st.session_state.setdefault("basket_seed_extra", 0)
+        # respect_stock=False: acá sí se proyecta a futuro, no está
+        # limitado a las unidades ya compradas.
+        proyeccion, proyectado = build_basket(
+            catalog, extra, random.Random(f"{int(extra)}-{seed_extra}"), respect_stock=False
+        )
+        if not proyeccion:
+            st.warning("Con ese monto todavía no alcanza para un artículo completo.")
+        else:
+            st.info(f"Con {format_currency(extra)} se podría comprar, por ejemplo:")
+            render_basket(proyeccion, proyectado)
+            if st.button("Ver otra combinación", key="reshuffle_extra"):
+                st.session_state.basket_seed_extra += 1
+                st.rerun()
+
+
 def render():
     selector_page = st.session_state.get("_selector_page")
     slug = st.query_params.get("c")
@@ -571,182 +759,58 @@ def render():
 
     st.divider()
 
-    tab_entregado, tab_facturas, tab_donaciones, tab_galeria, tab_aporte = st.tabs(
-        [
-            "📦 Lo que se entregó",
-            "🧾 Facturas y respaldos",
-            "💚 Aportes recibidos",
-            "📸 Galería",
-            "🧮 Qué logró tu aporte",
-        ]
+    # Navegación con botones en vez de st.tabs: las pestañas de Streamlit son
+    # discretas y la gente no las veía. Además, st.tabs calcula el contenido de
+    # TODAS las secciones en cada ejecución aunque nadie las abra; así sólo se
+    # arma la que está a la vista, que en móvil y en Streamlit Cloud se nota.
+    st.markdown("#### Explorá el detalle")
+    # El alto por defecto (32px) pasa desapercibido, que es justo el problema a
+    # resolver. Se agranda por la clase .st-key-<key> que Streamlit genera a
+    # partir del `key` del widget — el gancho estable que la documentación
+    # recomienda, en vez de apuntarle a clases autogeneradas.
+    st.html(
+        f"""
+        <style>
+          .st-key-nav_secciones button {{
+              height: 54px;
+              font-size: 1.02rem;
+              font-weight: 600;
+          }}
+          /* El verde de marca sobre el fondo tenue del botón activo mide
+             4.49:1, apenas por debajo del 4.5:1 que pide WCAG para texto
+             normal. Un paso más oscuro de la misma familia lo lleva a
+             6.89:1 sin cambiar el color de acento del resto de la app.
+             Lleva !important porque la regla propia de Streamlit para el
+             estado activo gana por especificidad. */
+          .st-key-nav_secciones button[aria-checked="true"] {{
+              color: {NAV_ACTIVE_INK} !important;
+          }}
+        </style>
+        """
     )
+    seccion = st.segmented_control(
+        "Secciones del tablero",
+        options=SECCIONES,
+        default=SECCIONES[0],
+        selection_mode="single",
+        # required evita que un segundo clic deseleccione y deje la página en blanco.
+        required=True,
+        width="stretch",
+        label_visibility="collapsed",
+        key="nav_secciones",
+    )
+    st.write("")
 
-    with tab_entregado:
-        aggregated = aggregate_items(items)
-        if aggregated.empty:
-            st.info("Todavía no se han registrado artículos.")
-        else:
-            st.markdown("**Cada artículo que se compró y entregó**")
-            display_df = pd.DataFrame(
-                {
-                    "Artículo": aggregated["name"],
-                    "Categoría": aggregated["category"],
-                    "Cantidad": [format_number(q) for q in aggregated["quantity"]],
-                    "Invertido": [format_currency(v) for v in aggregated["total_price"]],
-                }
-            )
-            st.dataframe(display_df, hide_index=True, width="stretch")
-
-            st.write("")
-            st.markdown("**En qué tipo de ayuda se invirtió**")
-            render_category_chart(items)
-
-    with tab_facturas:
-        if not invoices:
-            st.info("Aún no se han publicado facturas.")
-        else:
-            st.caption(
-                "Cada compra con su factura y, cuando existe, la foto de la entrega. "
-                "Nada de lo que aparece arriba sale de otro lado."
-            )
-            photos_by_invoice = {}
-            for photo in photos:
-                if photo.get("invoice_id"):
-                    photos_by_invoice.setdefault(photo["invoice_id"], []).append(photo)
-
-            for invoice in invoices:
-                invoice_items = [i for i in items if i["invoice_id"] == invoice["id"]]
-                invoice_total = sum(i["total_price"] for i in invoice_items)
-                linked_photos = photos_by_invoice.get(invoice["id"], [])
-                evidence_flag = f"  ·  📸 {len(linked_photos)}" if linked_photos else ""
-                title = (
-                    f"{invoice['merchant']} — {format_date(invoice['invoice_date'])} — "
-                    f"{format_currency(invoice_total)}{evidence_flag}"
-                )
-                with st.expander(title):
-                    if invoice.get("notes"):
-                        st.caption(invoice["notes"])
-                    if not invoice_items:
-                        st.info("Esta factura no tiene ítems registrados.")
-                    else:
-                        items_df = pd.DataFrame(
-                            {
-                                "Artículo": [i["item_name"] for i in invoice_items],
-                                "Categoría": [i["category"] or "Sin categoría" for i in invoice_items],
-                                "Cantidad": [i["quantity"] for i in invoice_items],
-                                "Valor Unitario": [format_currency(i["unit_price"]) for i in invoice_items],
-                                "Impuestos": [format_currency(i["tax_amount"]) for i in invoice_items],
-                                "Subtotal": [format_currency(i["total_price"]) for i in invoice_items],
-                            }
-                        )
-                        st.dataframe(items_df, hide_index=True, width="stretch")
-
-                    if linked_photos:
-                        st.markdown("**Evidencia de esta compra**")
-                        render_photo_grid(linked_photos, columns_count=3)
-
-    with tab_donaciones:
-        if not donations:
-            st.info("Aún no se han registrado aportes.")
-        else:
-            st.markdown("**El ritmo día por día**")
-            render_daily_activity(donations, invoices, items)
-
-            st.write("")
-            st.markdown("**Cada aporte recibido**")
-            st.caption("No se guarda ningún dato personal de quienes donaron.")
-            donations_df = pd.DataFrame(donations).sort_values("donation_date", ascending=False)
-            display_df = pd.DataFrame(
-                {
-                    "Fecha": donations_df["donation_date"].apply(format_date),
-                    "Monto": donations_df["amount"].apply(format_currency),
-                    "Notas": donations_df["notes"].fillna("—"),
-                }
-            )
-            st.dataframe(display_df, hide_index=True, width="stretch")
-
-    with tab_galeria:
-        if not photos:
-            st.info("Aún no se han publicado fotos.")
-        else:
-            st.caption("Fotos de las compras y las entregas.")
-            render_photo_grid(photos)
-
-    with tab_aporte:
-        catalog = purchase_catalog(items)
-        if not catalog:
-            st.info("Todavía no hay compras registradas para hacer el cálculo.")
-        else:
-            # --- 1. Lo ya comprado: hechos, no supuestos --------------------
-            st.markdown("**Tu aporte, reflejado en lo que ya se compró**")
-            st.caption(
-                "Escribí lo que aportaste y te mostramos una combinación equivalente "
-                "de artículos que ya están comprados y entregados."
-            )
-            contribution = st.number_input(
-                "Lo que aportaste", min_value=0, value=100000, step=10000, format="%d",
-            )
-
-            if contribution <= 0:
-                st.info("Ingresá un monto mayor a cero.")
-            else:
-                if total_donated > 0:
-                    share = contribution / total_donated * 100
-                    st.markdown(f"Tu aporte fue el **{share:.1f}%** de todo lo recaudado.")
-
-                tope = min(contribution, total_spent)
-                if contribution > total_spent:
-                    st.caption(
-                        f"Tu aporte supera lo ejecutado hasta hoy ({format_currency(total_spent)}), "
-                        "así que la combinación se arma sobre ese tope."
-                    )
-
-                seed = st.session_state.setdefault("basket_seed_real", 0)
-                # La semilla depende del monto para que el resultado no cambie
-                # solo/por teclear, y del contador para el botón de recombinar.
-                basket, spent = build_basket(
-                    catalog, tope, random.Random(f"{int(tope)}-{seed}"), respect_stock=True
-                )
-                if not basket:
-                    st.warning(
-                        "Con ese monto no alcanzaba ni un artículo completo por sí solo — "
-                        "pero sumado al de los demás, sí hizo la diferencia."
-                    )
-                else:
-                    st.success(f"Con {format_currency(tope)} se compró, por ejemplo:")
-                    render_basket(basket, spent, amount=tope, stock_limited=True)
-                    if st.button("Ver otra combinación", key="reshuffle_real"):
-                        st.session_state.basket_seed_real += 1
-                        st.rerun()
-                    st.caption(
-                        "Es una forma de dimensionar el aporte: todos estos artículos existen "
-                        "y están en las facturas publicadas."
-                    )
-
-            st.divider()
-
-            # --- 2. Lo que vendría después: estimación clara como tal -------
-            st.markdown("**¿Y si quisieras aportar más?**")
-            st.caption("Esto sí es una estimación, con los precios que se han pagado hasta ahora.")
-            extra = st.number_input(
-                "Monto que estás pensando aportar", min_value=0, value=50000, step=10000, format="%d",
-            )
-
-            if extra > 0:
-                seed_extra = st.session_state.setdefault("basket_seed_extra", 0)
-                # respect_stock=False: acá sí se proyecta a futuro, no está
-                # limitado a las unidades ya compradas.
-                proyeccion, proyectado = build_basket(
-                    catalog, extra, random.Random(f"{int(extra)}-{seed_extra}"), respect_stock=False
-                )
-                if not proyeccion:
-                    st.warning("Con ese monto todavía no alcanza para un artículo completo.")
-                else:
-                    st.info(f"Con {format_currency(extra)} se podría comprar, por ejemplo:")
-                    render_basket(proyeccion, proyectado)
-                    if st.button("Ver otra combinación", key="reshuffle_extra"):
-                        st.session_state.basket_seed_extra += 1
-                        st.rerun()
+    if seccion == SECCIONES[0]:
+        section_delivered(items)
+    elif seccion == SECCIONES[1]:
+        section_invoices(invoices, items, photos)
+    elif seccion == SECCIONES[2]:
+        section_contributions(donations, invoices, items)
+    elif seccion == SECCIONES[3]:
+        section_gallery(photos)
+    elif seccion == SECCIONES[4]:
+        section_impact(items, total_donated, total_spent)
 
     st.divider()
     admin_page = st.session_state.get("_admin_page")
