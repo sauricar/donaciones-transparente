@@ -174,15 +174,15 @@ def create_campaign(
     name: str,
     username: str,
     password: str,
-    description: str = None,
 ) -> dict:
+    """El operador crea la campaña y le da acceso; nada más. La descripción, los
+    datos para aportar y la foto los escribe la campaña desde su propio panel."""
     password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     payload = {
         "slug": slug.strip().lower(),
         "name": name,
         "username": username.strip().lower(),
         "password_hash": password_hash,
-        "description": description,
     }
     response = get_admin_client().table("campaigns").insert(payload).execute()
     return response.data[0]

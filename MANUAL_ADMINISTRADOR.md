@@ -7,8 +7,8 @@ Hay dos roles distintos, con contraseñas distintas:
 
 | Rol | Qué hace | Dónde entra |
 |---|---|---|
-| **Operador del sitio** | Crea y administra campañas (una por cada persona que recibe donaciones) | `/admin-campanas` |
-| **Encargado de campaña** | Carga las donaciones, facturas y evidencias de SU campaña | `/panel-de-gestion` |
+| **Operador del sitio** | Crea las campañas y da los accesos: nombre, link, usuario y contraseña | `/admin-campanas` |
+| **Encargado de campaña** | Carga donaciones, facturas y evidencias, y escribe cómo se presenta SU campaña | `/panel-de-gestion` |
 
 Una misma persona puede tener los dos roles (por ejemplo, si sos el único
 administrador y también el único que recibe donaciones), pero son dos
@@ -85,15 +85,26 @@ si hace falta completar algún dato antes de ejecutarlo.
 
 ## 2. Iniciar sesión
 
-- **Operador**: entrá a `/admin-campanas`. Esta URL no está enlazada desde
-  ninguna pantalla pública — accedé escribiéndola directamente en el
-  navegador. Ingresá la contraseña de operador (`ADMIN_PASSWORD`).
-- **Encargado de campaña**: entrá a `/panel-de-gestion` e ingresá el usuario
-  y la contraseña que el operador creó para tu campaña.
+Desde la portada (`/inicio`), arriba a la derecha, están los accesos a las
+tres pantallas: **Campañas**, **Gestión** y **Administración**.
+
+- **Operador**: entrá a `/admin-campanas`, o con el botón **"Administración"**
+  de la portada. Ingresá la contraseña de operador (`ADMIN_PASSWORD`).
+- **Encargado de campaña**: entrá a `/panel-de-gestion`, o con el botón
+  **"Gestión"**, e ingresá el usuario y la contraseña que el operador creó
+  para tu campaña.
+
+Que el enlace al panel de operador esté a la vista no lo deja expuesto: lo
+que lo protege es la contraseña. El tablero público de cada campaña —el que
+se comparte con quien dona— no muestra ese acceso.
 
 ---
 
 ## 3. Crear una campaña (rol operador)
+
+Como operador definís **quién entra y con qué link**. Cómo se presenta la
+campaña —descripción, datos para aportar y foto— lo escribe ella misma desde
+su panel de gestión.
 
 1. En `/admin-campanas`, completá el bloque **"Nueva campaña"**:
    - **Nombre de la campaña / persona**: como se va a mostrar públicamente.
@@ -101,36 +112,29 @@ si hace falta completar algún dato antes de ejecutarlo.
      campaña (por ejemplo `maria-perez` da como resultado
      `.../campana?c=maria-perez`). Si lo dejás vacío, se genera solo a partir
      del nombre. Solo minúsculas, números y guiones.
-   - **Descripción pública** (opcional): una frase que aparece en el
-     selector de campañas y en el tablero.
    - **Usuario de acceso** y **Contraseña**: las credenciales que vas a
      entregarle al encargado de esa campaña para que entre a
      `/panel-de-gestion`.
 2. Botón **"Crear campaña"**.
 3. La campaña queda activa de inmediato y visible en el selector público
-   (`/inicio`).
+   (`/inicio`). Hasta que su encargado escriba la descripción, el selector
+   muestra un texto genérico en su lugar.
 
 ### Editar una campaña existente
 
 Cada campaña aparece en un panel expandible en **"Campañas existentes"**,
 con:
 
-- Los mismos campos de arriba, editables, más el interruptor **"Activa"**
-  (desactivarla la oculta del selector público y del acceso directo, sin
-  borrar sus datos).
+- **Nombre**, **Slug** y **Usuario**, editables, más el interruptor
+  **"Activa"** (desactivarla la oculta del selector público y del acceso
+  directo, sin borrar sus datos).
 - El botón **"Restablecer contraseña"**, para cuando el encargado la olvida.
 
-> La **foto** de quien lidera la campaña no se sube desde acá: la administra
-> cada campaña desde su propio panel, en la pestaña "⚙️ Mi campaña"
-> ([sección 7](#7-tu-foto-en-el-tablero)).
-
-### El bloque "Cómo aportar"
-
-Dentro de la edición de cada campaña hay un campo de texto libre para los
-datos con los que la gente puede donar (Nequi, cuenta bancaria, contacto,
-etc.). Si se completa, aparece como un banner destacado arriba del tablero
-público de esa campaña, con un botón para copiar el texto. Si se deja vacío,
-el banner simplemente no aparece.
+> La **descripción pública**, los **datos para aportar** y la **foto** no se
+> editan desde acá: los maneja cada campaña desde su propio panel, en la
+> pestaña "⚙️ Mi campaña"
+> ([sección 7](#7-cómo-se-presenta-tu-campaña)). Así el encargado puede
+> corregir un número de Nequi sin tener que pedírtelo.
 
 ---
 
@@ -223,17 +227,32 @@ el registro como el archivo de la foto.
 
 ---
 
-## 7. Tu foto en el tablero
+## 7. Cómo se presenta tu campaña
 
-Pestaña **"⚙️ Mi campaña"**: subís una foto tuya y aparece en el banner de tu
-campaña, junto a los datos para aportar. Ponerle cara a quien recibe y ejecuta
-el dinero le da confianza a quien está decidiendo si ayuda.
+Pestaña **"⚙️ Mi campaña"**. Todo lo de esta pestaña lo manejás vos: el
+operador del sitio crea la campaña y te da el acceso, pero de ahí en adelante
+sos vos quien decide cómo se ve de cara al público.
+
+### Los textos
+
+- **Descripción pública**: una o dos líneas sobre tu campaña. Aparecen bajo tu
+  nombre en el directorio de campañas y arriba de tu tablero público. Si la
+  dejás vacía, el directorio muestra un texto genérico.
+- **Cómo aportar** (opcional): texto libre con los datos para donar (Nequi,
+  Daviplata, cuenta bancaria, contacto…). Si lo completás, aparece como un
+  banner destacado arriba de tu tablero, con un botón para copiar el texto. Si
+  lo dejás vacío, el banner simplemente no aparece.
+
+Se guardan con **"Guardar cambios"** y el tablero público los toma enseguida.
+
+### La foto
+
+Subís una foto tuya y aparece en ese mismo banner, junto a los datos para
+aportar. Ponerle cara a quien recibe y ejecuta el dinero le da confianza a
+quien está decidiendo si ayuda.
 
 **"Guardar foto"** la publica; **"Quitar foto"** la elimina, también del
 almacenamiento. Si subís una nueva, la anterior se borra sola.
-
-Cada campaña administra su propia foto — el operador del sitio no tiene que
-hacerlo por vos.
 
 ---
 

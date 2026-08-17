@@ -36,7 +36,9 @@ def render_global_totals(campaigns: list[dict]):
 
 
 def render():
-    render_top_nav(include_operator=False)
+    # La portada es el punto de partida de las tres puertas: el tablero público
+    # de cada campaña, el panel de quien la gestiona y el del operador del sitio.
+    render_top_nav(include_operator=True)
 
     st.title("🤝 Transparencia de Donaciones")
     st.caption(

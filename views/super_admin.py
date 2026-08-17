@@ -16,10 +16,14 @@ def slugify(name: str) -> str:
 
 def render_create_form():
     st.markdown("**Nueva campaña**")
+    st.caption(
+        "Acá se define quién entra y con qué link. Cómo se presenta la campaña "
+        "—descripción, datos para aportar y foto— lo escribe ella misma desde su "
+        "panel de gestión."
+    )
     with st.form("create_campaign_form", clear_on_submit=True):
         name = st.text_input("Nombre de la campaña / persona")
         slug = st.text_input("Slug para el link público (se sugiere a partir del nombre si lo dejás vacío)")
-        description = st.text_area("Descripción pública (opcional)")
         col1, col2 = st.columns(2)
         with col1:
             username = st.text_input("Usuario de acceso")
@@ -44,7 +48,6 @@ def render_create_form():
                     name=name.strip(),
                     username=username.strip(),
                     password=password,
-                    description=description.strip() or None,
                 )
                 st.success(f"Campaña creada. Link público: ?c={final_slug}")
                 st.rerun()
@@ -81,16 +84,6 @@ def render_campaign_list():
                 with col2:
                     username = st.text_input("Usuario", value=campaign["username"], key=f"username_{campaign['id']}")
                     is_active = st.toggle("Activa", value=campaign["is_active"], key=f"active_{campaign['id']}")
-                description = st.text_area(
-                    "Descripción pública", value=campaign.get("description") or "", key=f"desc_{campaign['id']}"
-                )
-                donation_info = st.text_area(
-                    "Cómo aportar (opcional)",
-                    value=campaign.get("donation_info") or "",
-                    key=f"dinfo_{campaign['id']}",
-                    help="Nequi, Daviplata, cuenta bancaria, contacto… Si lo dejás vacío, "
-                         "el tablero público no muestra este bloque.",
-                )
                 if st.form_submit_button("Guardar cambios"):
                     final_slug = slugify(slug)
                     if not name.strip():
@@ -106,8 +99,6 @@ def render_campaign_list():
                                 name=name.strip(),
                                 slug=final_slug,
                                 username=username.strip(),
-                                description=description.strip() or None,
-                                donation_info=donation_info.strip() or None,
                                 is_active=is_active,
                             )
                             st.success("Campaña actualizada.")
@@ -116,8 +107,8 @@ def render_campaign_list():
                             st.error(_friendly_update_error(error))
 
             st.caption(
-                "La foto de quien lidera la campaña se sube desde el panel de gestión "
-                "de la propia campaña, no desde acá."
+                "La descripción pública, los datos para aportar y la foto los edita "
+                "cada campaña desde su panel de gestión, no desde acá."
             )
 
             with st.popover("Restablecer contraseña"):

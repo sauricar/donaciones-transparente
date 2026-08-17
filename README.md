@@ -30,8 +30,8 @@ copia desde cero.
 |---|---|
 | `/inicio` | Directorio de campañas |
 | `/campana?c=<slug>` | Tablero público de una campaña (este es el enlace para compartir) |
-| `/panel-de-gestion` | Panel de cada campaña: cargar donaciones, facturas y evidencias |
-| `/admin-campanas` | Panel del operador: crear y administrar campañas |
+| `/panel-de-gestion` | Panel de cada campaña: cargar donaciones, facturas y evidencias, y editar cómo se presenta |
+| `/admin-campanas` | Panel del operador: crear campañas y dar los accesos |
 
 ```
 app.py              Navegación y registro de páginas

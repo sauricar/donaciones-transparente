@@ -510,12 +510,15 @@ SECCIONES = (
 )
 
 
-def render_top_nav(include_operator: bool = True):
+def render_top_nav(include_operator: bool = False):
     """Accesos a los paneles, arriba de todo y alineados a la derecha.
 
     Antes vivían al pie de la página: quien administra tenía que bajar hasta
-    el final para encontrarlos. El enlace al panel de operador nunca aparece
-    en pantallas públicas — sólo dentro del panel de una campaña."""
+    el final para encontrarlos. El enlace al panel de operador va en la
+    portada, junto a los otros dos, para que las tres puertas de la plataforma
+    se abran desde el mismo lugar; lo que protege ese panel es su contraseña,
+    no lo escondido del enlace. Queda fuera del tablero público de una campaña,
+    que es el que se comparte con quien dona."""
     selector_page = st.session_state.get("_selector_page")
     admin_page = st.session_state.get("_admin_page")
     operator_page = st.session_state.get("_operator_page")
@@ -753,7 +756,7 @@ def render():
         show_connection_error(error)
         return
 
-    render_top_nav(include_operator=False)
+    render_top_nav()
 
     st.title(f"🤝 {campaign['name']}")
     if campaign.get("description"):

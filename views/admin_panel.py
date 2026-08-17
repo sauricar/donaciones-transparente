@@ -457,12 +457,13 @@ def render_evidence_form():
     render_gallery_management(campaign, invoice_label, invoice_choices)
 
 
-def render_campaign_photo_form():
-    """Foto de quien lidera la campaña. Cada campaña administra la suya; el
-    operador del sitio no tiene que hacerlo por ella.
+def render_campaign_settings():
+    """La pestaña 'Mi campaña': todo lo que decide cómo se ve la campaña de cara
+    al público. El operador del sitio la crea y le da acceso; de ahí en adelante
+    el texto, los datos para aportar y la foto los maneja ella.
 
-    Va fuera de un st.form porque un file_uploader dentro de un formulario sólo
-    se procesa al enviarlo, y acá conviene que la foto se suba y se vea al toque."""
+    Lee la campaña una sola vez y se la pasa a las dos secciones, para no pegarle
+    dos veces a la base por la misma fila."""
     campaign = st.session_state.campaign
 
     try:
@@ -470,6 +471,53 @@ def render_campaign_photo_form():
     except Exception as error:
         st.error(f"No se pudo leer la campaña: {error}")
         return
+
+    render_campaign_texts_form(actual)
+    st.divider()
+    render_campaign_photo_form(actual)
+
+
+def render_campaign_texts_form(actual: dict):
+    """Descripción pública y datos para aportar. Antes los cargaba el operador
+    del sitio: cambiar un número de Nequi obligaba a pedírselo. Acá los edita
+    quien de verdad los conoce."""
+    campaign = st.session_state.campaign
+
+    st.markdown("**Cómo se presenta tu campaña**")
+    with st.form("campaign_texts_form"):
+        description = st.text_area(
+            "Descripción pública",
+            value=actual.get("description") or "",
+            help="Una o dos líneas sobre tu campaña. Aparecen bajo tu nombre en el "
+                 "directorio de campañas y arriba de tu tablero público.",
+        )
+        donation_info = st.text_area(
+            "Cómo aportar (opcional)",
+            value=actual.get("donation_info") or "",
+            help="Nequi, Daviplata, cuenta bancaria, contacto… Si lo dejás vacío, "
+                 "el tablero público no muestra este bloque.",
+        )
+        if st.form_submit_button("Guardar cambios"):
+            try:
+                db.update_campaign(
+                    campaign["id"],
+                    description=description.strip() or None,
+                    donation_info=donation_info.strip() or None,
+                )
+                st.success("Datos actualizados.")
+                clear_caches()
+                st.rerun()
+            except Exception as error:
+                st.error(f"No se pudo guardar: {error}")
+
+
+def render_campaign_photo_form(actual: dict):
+    """Foto de quien lidera la campaña. Cada campaña administra la suya; el
+    operador del sitio no tiene que hacerlo por ella.
+
+    Va fuera de un st.form porque un file_uploader dentro de un formulario sólo
+    se procesa al enviarlo, y acá conviene que la foto se suba y se vea al toque."""
+    campaign = st.session_state.campaign
     foto = actual.get("photo_url")
 
     st.markdown("**Tu foto en el tablero público**")
@@ -601,9 +649,9 @@ def render():
 
     campaign = st.session_state.campaign
 
-    # Accesos arriba de todo, incluido el del operador: esta pantalla ya está
-    # detrás de credenciales, así que acá sí corresponde mostrarlo.
-    render_top_nav(include_operator=True)
+    # Sin el acceso al panel de operador: desde acá se gestiona una campaña, no
+    # la plataforma. Ese enlace vive en la portada.
+    render_top_nav()
 
     header_cols = st.columns([4, 1], vertical_alignment="center")
     with header_cols[0]:
@@ -626,4 +674,4 @@ def render():
     with tab_evidencia:
         render_evidence_form()
     with tab_campana:
-        render_campaign_photo_form()
+        render_campaign_settings()
