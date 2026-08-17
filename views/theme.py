@@ -25,6 +25,8 @@ reader who learns it once is never re-taught.
 
 from datetime import datetime
 
+from views.i18n import get_language
+
 # --- Surfaces & ink -------------------------------------------------------
 PAGE = "#F5F5F5"          # page plane
 SURFACE = "#FFFFFF"       # cards & chart surface
@@ -75,24 +77,52 @@ CATEGORY_OPTIONS = [
 
 
 def format_currency(value: float) -> str:
+    """En español, formato colombiano: '$21.923.796'.
+
+    En inglés se antepone COP y se usan comas de millar: 'COP 21,923,796'. La
+    moneda explícita no es un adorno — un donante en Estados Unidos que lee
+    '$21.923.796' puede entender dólares y creer que el monto es mil veces
+    mayor de lo que es. En un tablero de transparencia esa confusión es
+    exactamente lo que hay que evitar."""
+    if get_language() == "en":
+        return "COP " + f"{value:,.0f}"
     return "$" + f"{value:,.0f}".replace(",", ".")
 
 
 def format_number(value: float) -> str:
+    if get_language() == "en":
+        return f"{value:,.0f}"
     return f"{value:,.0f}".replace(",", ".")
 
 
+def format_decimal(value: float, decimals: int = 1) -> str:
+    """Para porcentajes: coma decimal en español, punto en inglés."""
+    texto = f"{value:,.{decimals}f}"
+    if get_language() == "en":
+        return texto
+    return texto.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def format_date(iso_date: str) -> str:
-    return datetime.fromisoformat(iso_date).strftime("%d/%m/%Y")
+    """En inglés se escribe el mes con letras ('Aug 10, 2026') en vez de
+    08/10/2026: quien lee en inglés no comparte una única convención de orden
+    día/mes, y una fecha ambigua en una factura resta credibilidad."""
+    fecha = datetime.fromisoformat(iso_date)
+    if get_language() == "en":
+        return f"{MONTHS_EN[fecha.month - 1]} {fecha.day}, {fecha.year}"
+    return fecha.strftime("%d/%m/%Y")
 
 
 # Plotly rotula los meses en inglés salvo que se cargue un bundle de locale.
-# Como las marcas del eje se generan a mano, basta con esta tabla.
+# Como las marcas del eje se generan a mano, basta con estas tablas.
 MONTHS_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
 def format_day_short(value) -> str:
-    """'11 ago' — para las marcas del eje de las gráficas diarias."""
+    """'11 ago' / 'Aug 11' — para las marcas del eje de las gráficas diarias."""
+    if get_language() == "en":
+        return f"{MONTHS_EN[value.month - 1]} {value.day}"
     return f"{value.day} {MONTHS_ES[value.month - 1]}"
 
 
@@ -108,9 +138,11 @@ def apply_chart_theme(figure, height: int = None, show_legend: bool = False):
     figure.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        # Colombian number format: decimal comma, thousands period — matches
-        # format_currency() so axis ticks and card values agree.
-        separators=",.",
+        # Los separadores siguen al idioma, igual que format_currency(), para
+        # que las marcas de los ejes y los números de las tarjetas no se
+        # contradigan dentro de la misma pantalla.
+        # (decimal, millar): '.,' en inglés — 21,923,796.5 — y ',.' en español.
+        separators=".," if get_language() == "en" else ",.",
         font=dict(color=INK_SOFT, family="system-ui, -apple-system, Segoe UI, sans-serif", size=13),
         margin=dict(t=10, b=10, l=10, r=10),
         hoverlabel=dict(bgcolor=SURFACE, bordercolor=BORDER, font=dict(color=INK)),

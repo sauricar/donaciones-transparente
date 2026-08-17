@@ -34,12 +34,17 @@ from supabase import create_client, Client
 GALLERY_BUCKET = "evidencias"
 CAMPAIGN_BASE_COLUMNS = "id,slug,name,description,is_active,created_at"
 CAMPAIGN_PUBLIC_COLUMNS = CAMPAIGN_BASE_COLUMNS + ",donation_info,photo_url"
+CAMPAIGN_I18N_COLUMNS = CAMPAIGN_PUBLIC_COLUMNS + ",description_en,donation_info_en"
 
-# donation_info y photo_url sólo existen después de correr
-# migration_como_aportar.sql. El código no puede exigir que la migración vaya
-# primero: si las columnas todavía no están, se degrada a las columnas base y
-# el banner simplemente no aparece, en vez de tumbar todo el tablero.
-_campaign_columns = CAMPAIGN_PUBLIC_COLUMNS
+# Cada juego de columnas depende de una migración distinta: donation_info y
+# photo_url llegaron con migration_como_aportar.sql, y las _en con
+# migration_idioma_ingles.sql. El código no puede exigir que las migraciones
+# vayan primero, así que prueba del juego más completo al más pobre y se queda
+# con el primero que la base acepte: sin la migración de idioma el tablero
+# traduce en vivo, y sin la del banner ese bloque simplemente no aparece —
+# mucho mejor que tumbar todo el tablero.
+_CASCADA_COLUMNAS = (CAMPAIGN_I18N_COLUMNS, CAMPAIGN_PUBLIC_COLUMNS, CAMPAIGN_BASE_COLUMNS)
+_campaign_columns = CAMPAIGN_I18N_COLUMNS
 
 
 def _campaign_rows(build):
@@ -48,10 +53,14 @@ def _campaign_rows(build):
     try:
         return build(_campaign_columns).execute().data
     except Exception:
-        if _campaign_columns == CAMPAIGN_BASE_COLUMNS:
-            raise  # no era la columna faltante: es un error real
-        _campaign_columns = CAMPAIGN_BASE_COLUMNS
-        return build(_campaign_columns).execute().data
+        for siguiente in _CASCADA_COLUMNAS[_CASCADA_COLUMNAS.index(_campaign_columns) + 1:]:
+            try:
+                filas = build(siguiente).execute().data
+            except Exception:
+                continue
+            _campaign_columns = siguiente
+            return filas
+        raise  # no era una columna faltante: es un error real
 
 
 @st.cache_resource
@@ -169,6 +178,74 @@ def verify_campaign_login(username: str, password: str) -> dict | None:
     return campaign
 
 
+# ---------------------------------------------------------------------------
+# Traducción al inglés en el momento de guardar
+# ---------------------------------------------------------------------------
+
+# Qué texto libre de cada tabla se guarda además en inglés, en la columna
+# <campo>_en (ver migration_idioma_ingles.sql). Sólo campos que un donante
+# llega a leer: no tiene sentido traducir un número de factura.
+CAMPOS_TRADUCIBLES = {
+    "campaigns": ("description", "donation_info"),
+    "donations": ("notes",),
+    "invoices": ("notes", "merchant"),
+    "invoice_items": ("item_name", "category"),
+    "gallery_photos": ("title", "description"),
+}
+
+
+def _parece_columna_en_faltante(error: Exception) -> bool:
+    mensaje = str(error).lower()
+    return "_en" in mensaje and any(
+        pista in mensaje for pista in ("does not exist", "schema cache", "pgrst204", "column")
+    )
+
+
+def _con_traduccion(tabla: str, payload: dict) -> dict:
+    """Devuelve el payload con la versión en inglés de sus campos de texto.
+
+    La traducción nunca puede tumbar un guardado: translate_to_english() ya
+    devuelve el original ante cualquier falla, así que lo peor que pasa es que
+    una nota quede en español en las dos columnas."""
+    from views.i18n import translate_to_english
+
+    completo = dict(payload)
+    for campo in CAMPOS_TRADUCIBLES.get(tabla, ()):
+        if campo in payload:
+            completo[f"{campo}_en"] = translate_to_english(payload.get(campo))
+    return completo
+
+
+def _sin_columnas_en(payload: dict) -> dict:
+    return {clave: valor for clave, valor in payload.items() if not clave.endswith("_en")}
+
+
+def _insert_traducido(tabla: str, payload: dict) -> dict:
+    """Inserta guardando también la versión en inglés. Si esas columnas todavía
+    no existen (migración sin correr), reintenta sin ellas: el registro se
+    guarda igual y la app traduce en vivo al mostrarlo."""
+    completo = _con_traduccion(tabla, payload)
+    try:
+        return get_admin_client().table(tabla).insert(completo).execute().data[0]
+    except Exception as error:
+        if not _parece_columna_en_faltante(error):
+            raise
+        return get_admin_client().table(tabla).insert(_sin_columnas_en(completo)).execute().data[0]
+
+
+def _update_traducido(tabla: str, campos: dict, aplicar_filtros):
+    """Igual que _insert_traducido pero para updates. `aplicar_filtros` recibe la
+    consulta y le encadena los .eq() que correspondan, para que cada tabla
+    mantenga su propio criterio de pertenencia a la campaña."""
+    completo = _con_traduccion(tabla, campos)
+    try:
+        return aplicar_filtros(get_admin_client().table(tabla).update(completo)).execute()
+    except Exception as error:
+        if not _parece_columna_en_faltante(error):
+            raise
+        return aplicar_filtros(get_admin_client().table(tabla).update(_sin_columnas_en(completo))).execute()
+
+
 # La tabla operators sólo existe después de correr migration_operadores.sql.
 # Igual que con donation_info, el código no puede exigir que la migración vaya
 # primero: entre que se despliega esto y que alguien corre el SQL hay una
@@ -283,7 +360,9 @@ def update_campaign(campaign_id: str, **fields) -> dict:
         fields["username"] = fields["username"].strip().lower()
     if "slug" in fields:
         fields["slug"] = fields["slug"].strip().lower()
-    return get_admin_client().table("campaigns").update(fields).eq("id", campaign_id).execute().data[0]
+    return _update_traducido(
+        "campaigns", fields, lambda consulta: consulta.eq("id", campaign_id)
+    ).data[0]
 
 
 # ---------------------------------------------------------------------------
@@ -297,7 +376,7 @@ def create_donation(campaign_id: str, amount: float, donation_date: date = None,
         "donation_date": (donation_date or date.today()).isoformat(),
         "notes": notes,
     }
-    return get_admin_client().table("donations").insert(payload).execute().data[0]
+    return _insert_traducido("donations", payload)
 
 
 def get_donations(campaign_id: str, limit: int = 100, offset: int = 0) -> list[dict]:
@@ -322,13 +401,10 @@ def update_donation(donation_id: str, campaign_id: str, **fields) -> dict:
     """campaign_id scopes the update so a logged-in campaign can never touch
     another campaign's row (RLS doesn't help here since this runs on the
     service_role client — the .eq("campaign_id", ...) filter IS the check)."""
-    response = (
-        get_admin_client()
-        .table("donations")
-        .update(fields)
-        .eq("id", donation_id)
-        .eq("campaign_id", campaign_id)
-        .execute()
+    response = _update_traducido(
+        "donations",
+        fields,
+        lambda consulta: consulta.eq("id", donation_id).eq("campaign_id", campaign_id),
     )
     if not response.data:
         raise PermissionError("Donación no encontrada para esta campaña.")
@@ -357,7 +433,7 @@ def create_invoice(
         "invoice_date": (invoice_date or date.today()).isoformat(),
         "notes": notes,
     }
-    return get_admin_client().table("invoices").insert(payload).execute().data[0]
+    return _insert_traducido("invoices", payload)
 
 
 def get_invoices(campaign_id: str, limit: int = 100, offset: int = 0) -> list[dict]:
@@ -424,7 +500,44 @@ def create_invoice_with_items(
         ],
     }
     response = get_admin_client().rpc("create_invoice_with_items", payload).execute()
+    _traducir_factura_creada(response.data)
     return response.data
+
+
+def _traducir_factura_creada(resultado: dict) -> None:
+    """Completa las columnas en inglés después de que la RPC guardó la factura.
+
+    Va después y no adentro a propósito: la RPC es la que garantiza que una
+    factura nunca quede a medias, y meterle una llamada de red a un servicio de
+    traducción sería poner el registro contable a merced de que ese servicio
+    ande. Si esto falla, la factura ya está guardada y el tablero la traduce en
+    vivo al mostrarla."""
+    if not resultado:
+        return
+    try:
+        factura = resultado.get("invoice") or {}
+        campos = {
+            campo: factura.get(campo)
+            for campo in CAMPOS_TRADUCIBLES["invoices"]
+            if factura.get(campo)
+        }
+        if campos and factura.get("id"):
+            _update_traducido(
+                "invoices", campos, lambda consulta: consulta.eq("id", factura["id"])
+            )
+
+        for item in resultado.get("items") or []:
+            campos_item = {
+                campo: item.get(campo)
+                for campo in CAMPOS_TRADUCIBLES["invoice_items"]
+                if item.get(campo)
+            }
+            if campos_item and item.get("id"):
+                _update_traducido(
+                    "invoice_items", campos_item, lambda consulta, _id=item["id"]: consulta.eq("id", _id)
+                )
+    except Exception:
+        pass
 
 
 def get_invoice(invoice_id: str) -> dict | None:
@@ -433,13 +546,10 @@ def get_invoice(invoice_id: str) -> dict | None:
 
 
 def update_invoice(invoice_id: str, campaign_id: str, **fields) -> dict:
-    response = (
-        get_admin_client()
-        .table("invoices")
-        .update(fields)
-        .eq("id", invoice_id)
-        .eq("campaign_id", campaign_id)
-        .execute()
+    response = _update_traducido(
+        "invoices",
+        fields,
+        lambda consulta: consulta.eq("id", invoice_id).eq("campaign_id", campaign_id),
     )
     if not response.data:
         raise PermissionError("Factura no encontrada para esta campaña.")
@@ -486,7 +596,7 @@ def create_invoice_item(
         "unit_price": unit_price,
         "tax_amount": tax_amount,
     }
-    return get_admin_client().table("invoice_items").insert(payload).execute().data[0]
+    return _insert_traducido("invoice_items", payload)
 
 
 def get_invoice_items(invoice_id: str) -> list[dict]:
@@ -531,7 +641,9 @@ def update_invoice_item(item_id: str, campaign_id: str, **fields) -> dict:
     if not _item_owned_by_campaign(item_id, campaign_id):
         raise PermissionError("Ítem no encontrado para esta campaña.")
     fields.pop("total_price", None)
-    return get_admin_client().table("invoice_items").update(fields).eq("id", item_id).execute().data[0]
+    return _update_traducido(
+        "invoice_items", fields, lambda consulta: consulta.eq("id", item_id)
+    ).data[0]
 
 
 def delete_invoice_item(item_id: str, campaign_id: str) -> None:
@@ -560,7 +672,7 @@ def create_gallery_photo(
         "photo_url": photo_url,
         "invoice_id": invoice_id,
     }
-    return get_admin_client().table("gallery_photos").insert(payload).execute().data[0]
+    return _insert_traducido("gallery_photos", payload)
 
 
 def upload_gallery_photo(
@@ -649,13 +761,10 @@ def update_gallery_photo(photo_id: str, campaign_id: str, **fields) -> dict:
     if "invoice_id" in fields and fields["invoice_id"]:
         if not _invoice_owned_by_campaign(fields["invoice_id"], campaign_id):
             raise PermissionError("Factura no encontrada para esta campaña.")
-    response = (
-        get_admin_client()
-        .table("gallery_photos")
-        .update(fields)
-        .eq("id", photo_id)
-        .eq("campaign_id", campaign_id)
-        .execute()
+    response = _update_traducido(
+        "gallery_photos",
+        fields,
+        lambda consulta: consulta.eq("id", photo_id).eq("campaign_id", campaign_id),
     )
     if not response.data:
         raise PermissionError("Evidencia no encontrada para esta campaña.")

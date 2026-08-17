@@ -6,11 +6,12 @@ import streamlit as st
 
 import database as db
 from views.data import load_data, show_connection_error
+from views.i18n import localize_field, prime_translations, t
 from views.theme import (
     BANNER_BG, BANNER_BORDER, FLAG_BLUE, FLAG_RED, FLAG_YELLOW, INK_SOFT,
     NAV_ACTIVE_INK, SERIES_IMPACT, SERIES_MONEY, SURFACE, apply_chart_theme,
-    format_currency, format_date, format_day_short, format_number,
-    format_signed_currency,
+    format_currency, format_date, format_day_short, format_decimal,
+    format_number, format_signed_currency,
 )
 
 
@@ -35,7 +36,7 @@ def render_donation_banner(campaign: dict):
     permitan resaltar'). Va por la clase .st-key-<key> que Streamlit genera a
     partir del `key` del contenedor — el gancho estable que la documentación
     recomienda para estos casos, en vez de apuntarle a clases generadas."""
-    info = (campaign.get("donation_info") or "").strip()
+    info = (localize_field(campaign, "donation_info") or "").strip()
     photo = campaign.get("photo_url")
     if not info and not photo:
         return
@@ -62,9 +63,9 @@ def render_donation_banner(campaign: dict):
             body = st.container()
 
         with body:
-            st.markdown("##### :green[Cómo aportar a esta campaña]")
+            st.markdown(t("banner.como_aportar"))
             if photo:
-                st.caption(f"Quien recibe y ejecuta estos aportes: **{campaign['name']}**")
+                st.caption(t("banner.quien_recibe", nombre=campaign["name"]))
             if info:
                 # st.code trae botón de copiar nativo: un toque deja el dato en
                 # el portapapeles, sin selección manual ni CSS propio.
@@ -104,11 +105,16 @@ def aggregate_items(items: list[dict]) -> pd.DataFrame:
             continue
         rows.append(
             {
+                # La clave de agrupación es SIEMPRE el nombre en español: si se
+                # agrupara por el traducido, dos artículos distintos que el
+                # traductor resuelve igual se fundirían en una sola fila y el
+                # tablero mostraría cantidades que no corresponden a ninguna
+                # compra real.
                 "key": name.casefold(),
-                "name": name,
+                "name": localize_field(item, "item_name") or name,
                 "quantity": item["quantity"],
                 "total_price": item["total_price"],
-                "category": item.get("category") or "Sin categoría",
+                "category": localize_field(item, "category") or t("comun.sin_categoria"),
             }
         )
     if not rows:
@@ -173,34 +179,41 @@ def horizontal_bar(labels, values, value_labels, color: str, height_per_bar: int
 def render_delivered_chart(items: list[dict]):
     aggregated = aggregate_items(items)
     if aggregated.empty:
-        st.info("Todavía no hay artículos registrados.")
+        st.info(t("entregado.sin_articulos"))
         return
 
     top = aggregated.head(8)
     figure = horizontal_bar(
         labels=top["name"],
         values=top["quantity"],
-        value_labels=[f"{format_number(q)} und." for q in top["quantity"]],
+        value_labels=[f"{format_number(q)} {t('grafica.unidades')}" for q in top["quantity"]],
         color=SERIES_IMPACT,
     )
     st.plotly_chart(figure, width="stretch", config={"displayModeBar": False})
 
     if len(aggregated) > 8:
-        st.caption(f"Se muestran los 8 artículos más entregados de {len(aggregated)} en total.")
+        st.caption(t("entregado.top", total=len(aggregated)))
 
 
 def render_category_chart(items: list[dict]):
     if not items:
-        st.info("Todavía no hay gastos para mostrar.")
+        st.info(t("ritmo.sin_gastos"))
         return
 
-    df = pd.DataFrame(items)
-    df["category"] = df["category"].fillna("Sin categoría")
+    df = pd.DataFrame(
+        [
+            {
+                "category": localize_field(item, "category") or t("comun.sin_categoria"),
+                "total_price": item["total_price"],
+            }
+            for item in items
+        ]
+    )
     totals = df.groupby("category")["total_price"].sum().sort_values(ascending=False)
     grand_total = totals.sum()
 
     if len(totals) > 7:
-        totals = pd.concat([totals.iloc[:6], pd.Series({"Otros": totals.iloc[6:].sum()})])
+        totals = pd.concat([totals.iloc[:6], pd.Series({t("categoria.otros"): totals.iloc[6:].sum()})])
 
     labels = [
         f"{format_currency(v)}  ·  {v / grand_total * 100:.0f}%" if grand_total else format_currency(v)
@@ -283,24 +296,24 @@ def render_money_flow_chart(daily: pd.DataFrame):
     figure = go.Figure()
     figure.add_trace(
         go.Bar(
-            x=daily["day"], y=daily["amount"], name="Recibido",
+            x=daily["day"], y=daily["amount"], name=t("grafica.recibido"),
             marker=dict(color=SERIES_MONEY), width=0.38 * 86_400_000,
             customdata=[[format_currency(v), int(c), format_currency(a)]
                         for v, c, a in zip(daily["amount"], daily["count"], daily["avg"])],
-            hovertemplate="Recibido: %{customdata[0]}<br>"
-                          "Aportes: %{customdata[1]}<br>"
-                          "Promedio por aporte: %{customdata[2]}<extra></extra>",
+            hovertemplate=f"{t('grafica.recibido')}: %{{customdata[0]}}<br>"
+                          f"{t('grafica.aportes')}: %{{customdata[1]}}<br>"
+                          f"{t('grafica.promedio_aporte')}: %{{customdata[2]}}<extra></extra>",
         )
     )
     figure.add_trace(
         go.Bar(
-            x=daily["day"], y=daily["spent"], name="Gastado",
+            x=daily["day"], y=daily["spent"], name=t("grafica.gastado"),
             marker=dict(color=SERIES_IMPACT), width=0.38 * 86_400_000,
             customdata=[[format_currency(v), int(i), format_number(u)]
                         for v, i, u in zip(daily["spent"], daily["invoices"], daily["units"])],
-            hovertemplate="Gastado: %{customdata[0]}<br>"
-                          "Facturas: %{customdata[1]}<br>"
-                          "Artículos: %{customdata[2]}<extra></extra>",
+            hovertemplate=f"{t('grafica.gastado')}: %{{customdata[0]}}<br>"
+                          f"{t('grafica.facturas')}: %{{customdata[1]}}<br>"
+                          f"{t('grafica.articulos')}: %{{customdata[2]}}<extra></extra>",
         )
     )
     figure.update_layout(barmode="group", bargap=0.25, bargroupgap=0.08)
@@ -317,9 +330,9 @@ def render_contributions_chart(daily: pd.DataFrame):
             marker=dict(color=SERIES_MONEY), width=0.62 * 86_400_000,
             customdata=[[int(c), format_currency(v), format_currency(a)]
                         for c, v, a in zip(daily["count"], daily["amount"], daily["avg"])],
-            hovertemplate="Aportes: %{customdata[0]}<br>"
-                          "Suman: %{customdata[1]}<br>"
-                          "Promedio: %{customdata[2]}<extra></extra>",
+            hovertemplate=f"{t('grafica.aportes')}: %{{customdata[0]}}<br>"
+                          f"{t('grafica.suman')}: %{{customdata[1]}}<br>"
+                          f"{t('grafica.promedio')}: %{{customdata[2]}}<extra></extra>",
         )
     )
     return _apply_daily_axis(figure, daily, height=240)
@@ -333,9 +346,9 @@ def render_purchases_chart(daily: pd.DataFrame):
             marker=dict(color=SERIES_IMPACT), width=0.62 * 86_400_000,
             customdata=[[format_number(u), int(i), format_currency(s)]
                         for u, i, s in zip(daily["units"], daily["invoices"], daily["spent"])],
-            hovertemplate="Artículos: %{customdata[0]}<br>"
-                          "Facturas: %{customdata[1]}<br>"
-                          "Gastado: %{customdata[2]}<extra></extra>",
+            hovertemplate=f"{t('grafica.articulos')}: %{{customdata[0]}}<br>"
+                          f"{t('grafica.facturas')}: %{{customdata[1]}}<br>"
+                          f"{t('grafica.gastado')}: %{{customdata[2]}}<extra></extra>",
         )
     )
     return _apply_daily_axis(figure, daily, height=240)
@@ -344,7 +357,7 @@ def render_purchases_chart(daily: pd.DataFrame):
 def render_daily_activity(donations: list[dict], invoices: list[dict], items: list[dict]):
     daily = daily_series(donations, invoices, items)
     if daily.empty:
-        st.info("Aún no se han registrado aportes.")
+        st.info(t("aportes.sin_aportes"))
         return
 
     with_donations = daily[daily["count"] > 0]
@@ -354,7 +367,7 @@ def render_daily_activity(donations: list[dict], invoices: list[dict], items: li
     tiles = st.columns(3)
     with tiles[0]:
         st.metric(
-            label=f"Aportes del {format_day_short(last['day'])}",
+            label=t("ritmo.aportes_del_dia", dia=format_day_short(last["day"])),
             value=format_number(last["count"]),
             delta=(f"{int(last['count'] - earlier['count']):+d}" if earlier is not None else None),
             # delta_color="off" deja la variación en gris: informa el cambio sin
@@ -364,7 +377,7 @@ def render_daily_activity(donations: list[dict], invoices: list[dict], items: li
         )
     with tiles[1]:
         st.metric(
-            label="Suman ese día",
+            label=t("ritmo.suman_ese_dia"),
             value=format_currency(last["amount"]),
             delta=(format_signed_currency(last["amount"] - earlier["amount"]) if earlier is not None else None),
             delta_color="off",
@@ -372,7 +385,7 @@ def render_daily_activity(donations: list[dict], invoices: list[dict], items: li
         )
     with tiles[2]:
         st.metric(
-            label="Promedio por aporte",
+            label=t("grafica.promedio_aporte"),
             value=format_currency(last["avg"]),
             delta=(format_signed_currency(last["avg"] - earlier["avg"]) if earlier is not None else None),
             delta_color="off",
@@ -380,18 +393,18 @@ def render_daily_activity(donations: list[dict], invoices: list[dict], items: li
         )
 
     st.write("")
-    st.markdown("**Lo que entró y lo que salió, cada día**")
-    st.caption("Pasá el cursor sobre una barra para ver el detalle del día.")
+    st.markdown(t("ritmo.entrada_salida"))
+    st.caption(t("ritmo.hover"))
     st.plotly_chart(render_money_flow_chart(daily), width="stretch", config={"displayModeBar": False})
 
     chart_cols = st.columns(2)
     with chart_cols[0]:
-        st.markdown("**Aportes por día**")
-        st.caption("Cada aporte es alguien que decidió ayudar.")
+        st.markdown(t("ritmo.aportes_dia"))
+        st.caption(t("aportes.ayuda_corta"))
         st.plotly_chart(render_contributions_chart(daily), width="stretch", config={"displayModeBar": False})
     with chart_cols[1]:
-        st.markdown("**Artículos comprados por día**")
-        st.caption("Lo que se alcanzó a comprar y entregar.")
+        st.markdown(t("ritmo.articulos_dia"))
+        st.caption(t("ritmo.se_alcanzo"))
         st.plotly_chart(render_purchases_chart(daily), width="stretch", config={"displayModeBar": False})
 
 
@@ -471,19 +484,18 @@ def purchase_catalog(items: list[dict]) -> list[dict]:
 
 
 def render_basket(basket: list[dict], spent: float, amount: float = None, stock_limited: bool = False):
+    # name y category ya vienen en el idioma activo: aggregate_items() los
+    # resuelve al armar el catálogo.
     for entry in basket:
         st.markdown(
             f"- **{format_number(entry['qty'])}** × {entry['name']} "
-            f":gray[({entry['category']} · {format_currency(entry['unit_cost'])} c/u)]"
+            f":gray[({entry['category']} · {format_currency(entry['unit_cost'])} {t('grafica.cada_uno')})]"
         )
-    st.caption(f"Suma {format_currency(spent)} a precios reales de compra.")
+    st.caption(t("aporte.suma_real", monto=format_currency(spent)))
     # Con montos grandes se agotan las unidades realmente compradas y la canasta
     # queda por debajo del aporte. Decirlo es preferible a inflar cantidades.
     if stock_limited and amount and spent < amount * 0.9:
-        st.caption(
-            f"No se llega a {format_currency(amount)} porque la combinación sólo usa "
-            "unidades que de verdad se compraron."
-        )
+        st.caption(t("aporte.cesta_no_llega", monto=format_currency(amount)))
 
 
 def render_photo_grid(photos: list[dict], columns_count: int = 3):
@@ -491,22 +503,28 @@ def render_photo_grid(photos: list[dict], columns_count: int = 3):
     for index, photo in enumerate(photos):
         with columns[index % columns_count]:
             st.image(photo["photo_url"], width="stretch")
-            st.markdown(f"**{photo['title']}**")
+            st.markdown(f"**{localize_field(photo, 'title')}**")
             st.caption(format_date(photo["created_at"][:10]))
-            if photo.get("description"):
-                st.caption(photo["description"])
+            descripcion = localize_field(photo, "description")
+            if descripcion:
+                st.caption(descripcion)
 
 
 # Las etiquetas viven acá para que el selector y el despacho no puedan
 # desincronizarse: una sola fuente para ambos. Son cortas a propósito: en
 # celular las etiquetas largas partían la fila de botones en tres renglones
 # desparejos y se leía como un amontonamiento.
-SECCIONES = (
-    "📦 Entregado",
-    "🧾 Facturas",
-    "💚 Aportes",
-    "📸 Galería",
-    "🧮 Tu aporte",
+#
+# Lo que se guarda en session_state son estas claves, no las etiquetas: el
+# selector muestra el texto traducido vía format_func, pero su valor es estable
+# entre idiomas. Si guardara la etiqueta, cambiar de idioma dejaría en sesión un
+# "📦 Entregado" que ya no existe entre las opciones y el control reventaría.
+CLAVES_SECCIONES = (
+    "seccion.entregado",
+    "seccion.facturas",
+    "seccion.aportes",
+    "seccion.galeria",
+    "seccion.tu_aporte",
 )
 
 
@@ -525,11 +543,11 @@ def render_top_nav(include_operator: bool = False):
 
     destinos = []
     if selector_page is not None:
-        destinos.append((selector_page, "Campañas", ":material/home:"))
+        destinos.append((selector_page, t("nav.campanas"), ":material/home:"))
     if admin_page is not None:
-        destinos.append((admin_page, "Gestión", ":material/lock:"))
+        destinos.append((admin_page, t("nav.gestion"), ":material/lock:"))
     if include_operator and operator_page is not None:
-        destinos.append((operator_page, "Administración", ":material/settings:"))
+        destinos.append((operator_page, t("nav.administracion"), ":material/settings:"))
     if not destinos:
         return
 
@@ -555,34 +573,31 @@ def render_top_nav(include_operator: bool = False):
 def section_delivered(items: list[dict]):
     aggregated = aggregate_items(items)
     if aggregated.empty:
-        st.info("Todavía no se han registrado artículos.")
+        st.info(t("entregado.sin_articulos"))
         return
 
-    st.markdown("**Cada artículo que se compró y entregó**")
+    st.markdown(t("entregado.titulo"))
     display_df = pd.DataFrame(
         {
-            "Artículo": aggregated["name"],
-            "Categoría": aggregated["category"],
-            "Cantidad": [format_number(q) for q in aggregated["quantity"]],
-            "Invertido": [format_currency(v) for v in aggregated["total_price"]],
+            t("tabla.articulo"): aggregated["name"],
+            t("tabla.categoria"): aggregated["category"],
+            t("tabla.cantidad"): [format_number(q) for q in aggregated["quantity"]],
+            t("tabla.invertido"): [format_currency(v) for v in aggregated["total_price"]],
         }
     )
     st.dataframe(display_df, hide_index=True, width="stretch")
 
     st.write("")
-    st.markdown("**En qué tipo de ayuda se invirtió**")
+    st.markdown(t("entregado.tipo_ayuda"))
     render_category_chart(items)
 
 
 def section_invoices(invoices: list[dict], items: list[dict], photos: list[dict]):
     if not invoices:
-        st.info("Aún no se han publicado facturas.")
+        st.info(t("facturas.sin_facturas"))
         return
 
-    st.caption(
-        "Cada compra con su factura y, cuando existe, la foto de la entrega. "
-        "Nada de lo que aparece arriba sale de otro lado."
-    )
+    st.caption(t("facturas.ayuda"))
     photos_by_invoice = {}
     for photo in photos:
         if photo.get("invoice_id"):
@@ -594,49 +609,55 @@ def section_invoices(invoices: list[dict], items: list[dict], photos: list[dict]
         linked_photos = photos_by_invoice.get(invoice["id"], [])
         evidence_flag = f"  ·  📸 {len(linked_photos)}" if linked_photos else ""
         title = (
-            f"{invoice['merchant']} — {format_date(invoice['invoice_date'])} — "
+            f"{localize_field(invoice, 'merchant')} — {format_date(invoice['invoice_date'])} — "
             f"{format_currency(invoice_total)}{evidence_flag}"
         )
         with st.expander(title):
-            if invoice.get("notes"):
-                st.caption(invoice["notes"])
+            notas = localize_field(invoice, "notes")
+            if notas:
+                st.caption(notas)
             if not invoice_items:
-                st.info("Esta factura no tiene ítems registrados.")
+                st.info(t("facturas.sin_items"))
             else:
                 items_df = pd.DataFrame(
                     {
-                        "Artículo": [i["item_name"] for i in invoice_items],
-                        "Categoría": [i["category"] or "Sin categoría" for i in invoice_items],
-                        "Cantidad": [i["quantity"] for i in invoice_items],
-                        "Valor Unitario": [format_currency(i["unit_price"]) for i in invoice_items],
-                        "Impuestos": [format_currency(i["tax_amount"]) for i in invoice_items],
-                        "Subtotal": [format_currency(i["total_price"]) for i in invoice_items],
+                        t("tabla.articulo"): [localize_field(i, "item_name") for i in invoice_items],
+                        t("tabla.categoria"): [
+                            localize_field(i, "category") or t("comun.sin_categoria")
+                            for i in invoice_items
+                        ],
+                        t("tabla.cantidad"): [i["quantity"] for i in invoice_items],
+                        t("tabla.valor_unitario"): [format_currency(i["unit_price"]) for i in invoice_items],
+                        t("tabla.impuestos"): [format_currency(i["tax_amount"]) for i in invoice_items],
+                        t("tabla.subtotal"): [format_currency(i["total_price"]) for i in invoice_items],
                     }
                 )
                 st.dataframe(items_df, hide_index=True, width="stretch")
 
             if linked_photos:
-                st.markdown("**Evidencia de esta compra**")
+                st.markdown(t("facturas.evidencia"))
                 render_photo_grid(linked_photos, columns_count=3)
 
 
 def section_contributions(donations: list[dict], invoices: list[dict], items: list[dict]):
     if not donations:
-        st.info("Aún no se han registrado aportes.")
+        st.info(t("aportes.sin_aportes"))
         return
 
-    st.markdown("**El ritmo día por día**")
+    st.markdown(t("ritmo.titulo"))
     render_daily_activity(donations, invoices, items)
 
     st.write("")
-    st.markdown("**Cada aporte recibido**")
-    st.caption("No se guarda ningún dato personal de quienes donaron.")
+    st.markdown(t("aportes.cada_aporte"))
+    st.caption(t("aportes.ayuda"))
     donations_df = pd.DataFrame(donations).sort_values("donation_date", ascending=False)
     display_df = pd.DataFrame(
         {
-            "Fecha": donations_df["donation_date"].apply(format_date),
-            "Monto": donations_df["amount"].apply(format_currency),
-            "Notas": donations_df["notes"].fillna("—"),
+            t("tabla.fecha"): donations_df["donation_date"].apply(format_date),
+            t("tabla.monto"): donations_df["amount"].apply(format_currency),
+            t("tabla.notas"): [
+                localize_field(fila, "notes") or "—" for fila in donations_df.to_dict("records")
+            ],
         }
     )
     st.dataframe(display_df, hide_index=True, width="stretch")
@@ -644,41 +665,35 @@ def section_contributions(donations: list[dict], invoices: list[dict], items: li
 
 def section_gallery(photos: list[dict]):
     if not photos:
-        st.info("Aún no se han publicado fotos.")
+        st.info(t("galeria.sin_fotos"))
         return
-    st.caption("Fotos de las compras y las entregas.")
+    st.caption(t("galeria.ayuda"))
     render_photo_grid(photos)
 
 
 def section_impact(items: list[dict], total_donated: float, total_spent: float):
     catalog = purchase_catalog(items)
     if not catalog:
-        st.info("Todavía no hay compras registradas para hacer el cálculo.")
+        st.info(t("aporte.sin_compras"))
         return
 
     # --- 1. Lo ya comprado: hechos, no supuestos ---------------------------
-    st.markdown("**Tu aporte, reflejado en lo que ya se compró**")
-    st.caption(
-        "Escribí lo que aportaste y te mostramos una combinación equivalente "
-        "de artículos que ya están comprados y entregados."
-    )
+    st.markdown(t("aporte.equivale"))
+    st.caption(t("aporte.intro"))
     contribution = st.number_input(
-        "Lo que aportaste", min_value=0, value=100000, step=10000, format="%d",
+        t("aporte.monto"), min_value=0, value=100000, step=10000, format="%d",
     )
 
     if contribution <= 0:
-        st.info("Ingresá un monto mayor a cero.")
+        st.info(t("aporte.monto_invalido"))
     else:
         if total_donated > 0:
             share = contribution / total_donated * 100
-            st.markdown(f"Tu aporte fue el **{share:.1f}%** de todo lo recaudado.")
+            st.markdown(t("aporte.participacion", pct=format_decimal(share)))
 
         tope = min(contribution, total_spent)
         if contribution > total_spent:
-            st.caption(
-                f"Tu aporte supera lo ejecutado hasta hoy ({format_currency(total_spent)}), "
-                "así que la combinación se arma sobre ese tope."
-            )
+            st.caption(t("aporte.supera_ejecutado", monto=format_currency(total_spent)))
 
         seed = st.session_state.setdefault("basket_seed_real", 0)
         # La semilla depende del monto para que el resultado no cambie
@@ -687,28 +702,22 @@ def section_impact(items: list[dict], total_donated: float, total_spent: float):
             catalog, tope, random.Random(f"{int(tope)}-{seed}"), respect_stock=True
         )
         if not basket:
-            st.warning(
-                "Con ese monto no alcanzaba ni un artículo completo por sí solo — "
-                "pero sumado al de los demás, sí hizo la diferencia."
-            )
+            st.warning(t("aporte.no_alcanza_sumado"))
         else:
-            st.success(f"Con {format_currency(tope)} se compró, por ejemplo:")
+            st.success(t("aporte.con_monto_se_compro", monto=format_currency(tope)))
             render_basket(basket, spent, amount=tope, stock_limited=True)
-            if st.button("Ver otra combinación", key="reshuffle_real"):
+            if st.button(t("aporte.otra_combinacion"), key="reshuffle_real"):
                 st.session_state.basket_seed_real += 1
                 st.rerun()
-            st.caption(
-                "Es una forma de dimensionar el aporte: todos estos artículos existen "
-                "y están en las facturas publicadas."
-            )
+            st.caption(t("aporte.existen"))
 
     st.divider()
 
     # --- 2. Lo que vendría después: estimación clara como tal --------------
-    st.markdown("**¿Y si quisieras aportar más?**")
-    st.caption("Esto sí es una estimación, con los precios que se han pagado hasta ahora.")
+    st.markdown(t("aporte.mas_titulo"))
+    st.caption(t("aporte.estimacion"))
     extra = st.number_input(
-        "Monto que estás pensando aportar", min_value=0, value=50000, step=10000, format="%d",
+        t("aporte.monto_extra"), min_value=0, value=50000, step=10000, format="%d",
     )
 
     if extra > 0:
@@ -719,13 +728,38 @@ def section_impact(items: list[dict], total_donated: float, total_spent: float):
             catalog, extra, random.Random(f"{int(extra)}-{seed_extra}"), respect_stock=False
         )
         if not proyeccion:
-            st.warning("Con ese monto todavía no alcanza para un artículo completo.")
+            st.warning(t("aporte.no_alcanza"))
         else:
-            st.info(f"Con {format_currency(extra)} se podría comprar, por ejemplo:")
+            st.info(t("aporte.con_monto_se_podria", monto=format_currency(extra)))
             render_basket(proyeccion, proyectado)
-            if st.button("Ver otra combinación", key="reshuffle_extra"):
+            if st.button(t("aporte.otra_combinacion"), key="reshuffle_extra"):
                 st.session_state.basket_seed_extra += 1
                 st.rerun()
+
+
+def _textos_traducibles(campaign, donations, invoices, items, photos):
+    """Junta el texto libre de una campaña que el tablero público llega a
+    mostrar. Sólo lo que ya no tenga su versión en inglés guardada: si la
+    migración de idioma corrió y el registro se cargó después, no hace falta
+    pedir nada."""
+    def pendiente(fila, campo):
+        if (fila.get(f"{campo}_en") or "").strip():
+            return None
+        return fila.get(campo)
+
+    yield pendiente(campaign, "description")
+    yield pendiente(campaign, "donation_info")
+    for donation in donations:
+        yield pendiente(donation, "notes")
+    for invoice in invoices:
+        yield pendiente(invoice, "notes")
+        yield pendiente(invoice, "merchant")
+    for item in items:
+        yield pendiente(item, "item_name")
+        yield pendiente(item, "category")
+    for photo in photos:
+        yield pendiente(photo, "title")
+        yield pendiente(photo, "description")
 
 
 def render():
@@ -735,18 +769,18 @@ def render():
     try:
         campaign = db.get_campaign_by_slug(slug) if slug else None
     except Exception as error:
-        st.title("🤝 Transparencia de Donaciones")
+        st.title(t("portada.titulo"))
         show_connection_error(error)
         return
 
     if campaign is None or not campaign["is_active"]:
-        st.title("🤝 Transparencia de Donaciones")
+        st.title(t("portada.titulo"))
         if campaign is None:
-            st.warning("No encontramos esa campaña.")
+            st.warning(t("tablero.no_encontrada"))
         else:
-            st.warning(f"La campaña **{campaign['name']}** está pausada por el momento.")
+            st.warning(t("tablero.pausada", nombre=campaign["name"]))
         if selector_page is not None:
-            st.page_link(selector_page, label="← Ver todas las campañas")
+            st.page_link(selector_page, label=t("nav.volver_campanas"))
         return
 
     try:
@@ -758,10 +792,17 @@ def render():
 
     render_top_nav()
 
+    # Todo lo que la pantalla va a traducir, en un solo lote y antes de dibujar
+    # nada. Sin esto, cada nombre de artículo saldría a la red por su cuenta y
+    # el tablero tardaría casi un minuto en aparecer la primera vez.
+    with st.spinner(t("comun.traduciendo")):
+        prime_translations(_textos_traducibles(campaign, donations, invoices, items, photos))
+
     st.title(f"🤝 {campaign['name']}")
-    if campaign.get("description"):
-        st.caption(campaign["description"])
-    st.caption("Cada peso que llegó y en qué se convirtió — con las facturas y las fotos que lo respaldan.")
+    descripcion = localize_field(campaign, "description")
+    if descripcion:
+        st.caption(descripcion)
+    st.caption(t("tablero.subtitulo"))
     flag_stripe()
     render_donation_banner(campaign)
 
@@ -771,14 +812,12 @@ def render():
     pct_used = (total_spent / total_donated) if total_donated > 0 else 0
 
     kpi_cols = st.columns(3)
-    metric_card(kpi_cols[0], "Recibido de la gente", format_currency(total_donated), accent="money")
-    metric_card(kpi_cols[1], "Ya convertido en ayuda", format_currency(total_spent), accent="impact")
-    metric_card(kpi_cols[2], "Pendiente por ejecutar", format_currency(balance))
+    metric_card(kpi_cols[0], t("tablero.recibido"), format_currency(total_donated), accent="money")
+    metric_card(kpi_cols[1], t("tablero.convertido"), format_currency(total_spent), accent="impact")
+    metric_card(kpi_cols[2], t("tablero.pendiente"), format_currency(balance))
 
-    meter(
-        pct_used,
-        f"{pct_used * 100:,.1f}% de lo recibido ya se transformó en artículos comprados y entregados.".replace(",", "."),
-    )
+    meter(pct_used, t("tablero.medidor", pct=format_decimal(pct_used * 100)))
+    st.caption(t("comun.moneda_nota"))
 
     donation_count = len(donations)
     items_delivered = sum(i["quantity"] for i in items)
@@ -788,19 +827,16 @@ def render():
 
     st.write("")
     stat_cols = st.columns(5)
-    mini_stat(stat_cols[0], ":material/volunteer_activism:", format_number(donation_count), "Aportes recibidos")
-    mini_stat(stat_cols[1], ":material/payments:", format_currency(avg_donation), "Aporte promedio")
-    mini_stat(stat_cols[2], ":material/inventory_2:", format_number(items_delivered), "Artículos entregados")
-    mini_stat(stat_cols[3], ":material/receipt_long:", format_number(len(invoices)), "Facturas publicadas")
-    mini_stat(stat_cols[4], ":material/schedule:", last_activity, "Último movimiento")
+    mini_stat(stat_cols[0], ":material/volunteer_activism:", format_number(donation_count), t("tablero.aportes"))
+    mini_stat(stat_cols[1], ":material/payments:", format_currency(avg_donation), t("tablero.promedio_aporte"))
+    mini_stat(stat_cols[2], ":material/inventory_2:", format_number(items_delivered), t("portada.articulos_entregados"))
+    mini_stat(stat_cols[3], ":material/receipt_long:", format_number(len(invoices)), t("seccion.facturas_llanas"))
+    mini_stat(stat_cols[4], ":material/schedule:", last_activity, t("tablero.ultimo_movimiento"))
 
     st.divider()
 
-    st.subheader("🎁 En esto se convirtió el aporte de todos")
-    st.caption(
-        "Artículos comprados con las donaciones y entregados a los centros de acopio, "
-        "que son quienes los reparten entre las familias afectadas."
-    )
+    st.subheader(t("aporte.titulo"))
+    st.caption(t("entregado.ayuda"))
     render_delivered_chart(items)
 
     st.divider()
@@ -809,7 +845,7 @@ def render():
     # discretas y la gente no las veía. Además, st.tabs calcula el contenido de
     # TODAS las secciones en cada ejecución aunque nadie las abra; así sólo se
     # arma la que está a la vista, que en móvil y en Streamlit Cloud se nota.
-    st.markdown("#### Explorá el detalle")
+    st.markdown(t("tablero.explora"))
     # El alto por defecto (32px) pasa desapercibido, que es justo el problema a
     # resolver. Se agranda por la clase .st-key-<key> que Streamlit genera a
     # partir del `key` del widget — el gancho estable que la documentación
@@ -835,9 +871,10 @@ def render():
         """
     )
     seccion = st.segmented_control(
-        "Secciones del tablero",
-        options=SECCIONES,
-        default=SECCIONES[0],
+        t("tablero.secciones"),
+        options=CLAVES_SECCIONES,
+        default=CLAVES_SECCIONES[0],
+        format_func=t,
         selection_mode="single",
         # required evita que un segundo clic deseleccione y deje la página en blanco.
         required=True,
@@ -847,18 +884,16 @@ def render():
     )
     st.write("")
 
-    if seccion == SECCIONES[0]:
+    if seccion == "seccion.entregado":
         section_delivered(items)
-    elif seccion == SECCIONES[1]:
+    elif seccion == "seccion.facturas":
         section_invoices(invoices, items, photos)
-    elif seccion == SECCIONES[2]:
+    elif seccion == "seccion.aportes":
         section_contributions(donations, invoices, items)
-    elif seccion == SECCIONES[3]:
+    elif seccion == "seccion.galeria":
         section_gallery(photos)
-    elif seccion == SECCIONES[4]:
+    elif seccion == "seccion.tu_aporte":
         section_impact(items, total_donated, total_spent)
 
     st.divider()
-    st.caption(
-        "Los accesos a los paneles de gestión están arriba, en la parte superior de la página."
-    )
+    st.caption(t("tablero.accesos_arriba"))

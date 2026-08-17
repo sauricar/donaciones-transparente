@@ -11,3 +11,9 @@ pandas>=2.2
 plotly>=6.0
 pillow>=11.0
 bcrypt>=4.1
+
+# Traduce al inglés el texto que escriben las campañas (artículos, notas, pies
+# de foto). Se llama una sola vez por registro, al guardarlo, y el resultado
+# queda en la base — ver views/i18n.py. Si el servicio falla, la app muestra el
+# texto original en español en vez de romperse.
+deep-translator>=1.11

@@ -34,13 +34,39 @@ copia desde cero.
 | `/admin-campanas` | Panel del operador: crear campañas y dar los accesos |
 
 ```
-app.py              Navegación y registro de páginas
-database.py         Acceso a Supabase (lecturas con anon key, escrituras con service_role)
-views/theme.py      Paleta, formatos y tema de gráficas
-views/*.py          Una vista por pantalla
-schema.sql          Esquema de referencia para una instalación nueva
-migration_*.sql     Migraciones sobre una base existente, en orden
+app.py                     Navegación, registro de páginas y selector de idioma
+database.py                Acceso a Supabase (lecturas con anon key, escrituras con service_role)
+views/theme.py             Paleta, formatos y tema de gráficas
+views/i18n.py              Idioma activo, textos fijos y traducción del contenido
+views/translations.py      Catálogo es/en y glosario del dominio
+views/*.py                 Una vista por pantalla
+schema.sql                 Esquema de referencia para una instalación nueva
+migration_*.sql            Migraciones sobre una base existente, en orden
+backfill_traducciones.py   Traduce al inglés lo cargado antes del bilingüe (una vez)
 ```
+
+## Español e inglés
+
+El tablero se ve completo en los dos idiomas. El selector está en la barra
+lateral, y `?lang=en` abre un enlace directamente en inglés — útil para
+difundir la campaña entre donantes que no leen español.
+
+Son dos problemas distintos, resueltos distinto:
+
+- **Los textos de la app** viven en un diccionario local (`views/translations.py`).
+  Gratis, instantáneo y sin depender de ningún servicio.
+- **Lo que escriben las campañas** (artículos, notas, pies de foto) se traduce
+  con `deep-translator` **al guardarlo** y queda en columnas `_en`. Así el
+  donante no espera a nadie y el tablero funciona aunque el traductor esté caído.
+
+Para lo cargado antes de esta función: correr `migration_idioma_ingles.sql` y
+después `python backfill_traducciones.py`. Sin ese backfill el tablero traduce
+en vivo lo que alcance en 10 segundos y muestra el resto en español —
+deliberado: es preferible un artículo sin traducir a una página que no carga.
+
+Los montos en inglés se muestran como `COP 21,923,796`, con la moneda
+explícita: un donante extranjero que lee `$21.923.796` puede entender dólares
+y creer que la cifra es mil veces mayor.
 
 ## Puesta en marcha
 

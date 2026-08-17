@@ -284,6 +284,32 @@ almacenamiento. Si subís una nueva, la anterior se borra sola.
 
 ---
 
+## 7.1. El tablero en inglés
+
+El tablero se ve completo en español y en inglés. Quien lo visita elige el
+idioma en el selector **"Idioma / Language"** de la barra lateral, y el enlace
+`...?lang=en` abre directamente en inglés — ese es el que conviene compartir
+con donantes que no leen español.
+
+**No tenés que escribir nada dos veces.** Lo que cargues (artículos, notas,
+pies de foto, tu descripción y tus datos para aportar) se traduce solo al
+guardarlo y queda guardado en los dos idiomas.
+
+Dos cosas que conviene saber:
+
+- Los montos en inglés se muestran como `COP 21,923,796`, con la moneda
+  explícita, para que nadie los confunda con dólares.
+- Revisá una vez cómo quedó tu bloque **"Cómo aportar"** en inglés: los
+  números de cuenta y de Nequi se conservan tal cual, pero vale la pena
+  confirmarlo, porque es el dato con el que la gente te va a transferir.
+
+> **Instalación que ya tenía datos**: lo cargado antes de esta función no está
+> traducido todavía. Corré `migration_idioma_ingles.sql` y después, una sola
+> vez, `python backfill_traducciones.py`. Mientras tanto el tablero traduce en
+> vivo lo que alcanza y deja el resto en español.
+
+---
+
 ## 8. Compartir el tablero
 
 El enlace público de una campaña es

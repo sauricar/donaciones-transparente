@@ -1,17 +1,14 @@
 import streamlit as st
 
 import database as db
+from views.i18n import t
 
 
 def show_connection_error(error: Exception):
     """A public visitor must never see a raw traceback. Supabase returning 503
     (project paused or a transient outage) is the common case."""
-    st.error(
-        "😕 No pudimos conectarnos a la base de datos en este momento. "
-        "Es un problema temporal del servidor, no de tus datos — "
-        "volvé a intentarlo en unos minutos."
-    )
-    with st.expander("Detalle técnico"):
+    st.error(t("error.conexion"))
+    with st.expander(t("error.detalle_tecnico")):
         st.code(str(error))
 
 
