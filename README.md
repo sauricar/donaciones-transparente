@@ -64,12 +64,16 @@ git); en Streamlit Cloud, en *Settings → Secrets*:
 SUPABASE_URL = "https://<proyecto>.supabase.co"
 SUPABASE_KEY = "<clave anon / publishable>"
 SUPABASE_SERVICE_KEY = "<clave service_role>"
-ADMIN_PASSWORD = "<contraseña del operador>"
+ADMIN_PASSWORD = "<contraseña de respaldo del operador>"
 ```
 
 `SUPABASE_SERVICE_KEY` salta las políticas de seguridad de la base por diseño.
 Sólo se usa del lado del servidor y nunca llega al navegador — pero por eso
 mismo no debe salir de ahí.
+
+El operador entra con **usuario y contraseña**, guardados en la tabla
+`operators` (`migration_operadores.sql`). `ADMIN_PASSWORD` queda como acceso de
+respaldo mientras esa migración no se haya corrido.
 
 ## Decisiones de diseño
 

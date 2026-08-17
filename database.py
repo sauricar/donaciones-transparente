@@ -169,6 +169,51 @@ def verify_campaign_login(username: str, password: str) -> dict | None:
     return campaign
 
 
+# La tabla operators sólo existe después de correr migration_operadores.sql.
+# Igual que con donation_info, el código no puede exigir que la migración vaya
+# primero: entre que se despliega esto y que alguien corre el SQL hay una
+# ventana en la que la tabla no está, y dejar al operador afuera de su propio
+# panel en esa ventana sería peor que aceptar el esquema viejo un rato más.
+OPERATORS_TABLE_MISSING = "operators_table_missing"
+
+
+def _looks_like_missing_operators_table(error: Exception) -> bool:
+    mensaje = str(error).lower()
+    if "operators" not in mensaje:
+        return False
+    return any(
+        pista in mensaje
+        for pista in ("does not exist", "schema cache", "pgrst205", "relation")
+    )
+
+
+def verify_operator_login(username: str, password: str):
+    """True/False según las credenciales del operador del sitio.
+
+    Devuelve OPERATORS_TABLE_MISSING si la tabla todavía no existe, para que la
+    vista sepa que tiene que caer al esquema viejo de sólo ADMIN_PASSWORD en vez
+    de mostrar 'usuario o contraseña incorrectos' sobre una tabla que no está."""
+    try:
+        response = (
+            get_admin_client()
+            .table("operators")
+            .select("username,password_hash,is_active")
+            .eq("username", username.strip().lower())
+            .execute()
+        )
+    except Exception as error:
+        if _looks_like_missing_operators_table(error):
+            return OPERATORS_TABLE_MISSING
+        raise
+
+    if not response.data:
+        return False
+    operator = response.data[0]
+    if not operator["is_active"]:
+        return False
+    return bcrypt.checkpw(password.encode(), operator["password_hash"].encode())
+
+
 def create_campaign(
     slug: str,
     name: str,

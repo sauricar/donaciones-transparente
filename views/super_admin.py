@@ -4,6 +4,7 @@ import streamlit as st
 
 import database as db
 from views.auth import get_operator_password
+from views.public_dashboard import render_top_nav
 
 _ACCENTS = str.maketrans("áéíóúüñ", "aeiouun")
 
@@ -122,9 +123,23 @@ def render_campaign_list():
                             st.error("Ingresá una contraseña.")
 
 
+def _operator_login(username: str, password: str) -> bool:
+    """Valida contra la tabla operators. Si esa tabla todavía no existe (base sin
+    migrar), cae al esquema viejo: sólo la contraseña ADMIN_PASSWORD, ignorando
+    el usuario. Ver migration_operadores.sql."""
+    resultado = db.verify_operator_login(username, password)
+    if resultado is not db.OPERATORS_TABLE_MISSING:
+        return bool(resultado)
+
+    operator_password = get_operator_password()
+    return bool(operator_password) and password == operator_password
+
+
 def render():
     if "is_operator" not in st.session_state:
         st.session_state.is_operator = False
+
+    selector_page = st.session_state.get("_selector_page")
 
     st.title("🛠️ Administración de Campañas")
     st.caption("Acceso exclusivo para el operador del sitio.")
@@ -134,16 +149,30 @@ def render():
         with center:
             with st.container(border=True):
                 with st.form("operator_login_form"):
-                    password = st.text_input("Contraseña de operador", type="password")
+                    username = st.text_input("Usuario")
+                    password = st.text_input("Contraseña", type="password")
                     submitted = st.form_submit_button("Iniciar sesión", width="stretch")
                 if submitted:
-                    operator_password = get_operator_password()
-                    if operator_password and password == operator_password:
-                        st.session_state.is_operator = True
-                        st.rerun()
+                    try:
+                        autorizado = _operator_login(username, password)
+                    except Exception as error:
+                        st.error(f"No se pudo verificar el acceso: {error}")
                     else:
-                        st.error("Contraseña incorrecta.")
+                        if autorizado:
+                            st.session_state.is_operator = True
+                            st.rerun()
+                        else:
+                            st.error("Usuario o contraseña incorrectos.")
+
+        st.write("")
+        if selector_page is not None:
+            st.page_link(selector_page, label="← Volver a la página principal")
         return
+
+    # Los accesos de arriba (Campañas / Gestión) son la vuelta a la portada:
+    # antes, una vez adentro de este panel no había forma de salir sin editar
+    # la URL a mano.
+    render_top_nav()
 
     if st.button("Cerrar sesión"):
         st.session_state.is_operator = False

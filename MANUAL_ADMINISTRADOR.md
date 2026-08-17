@@ -64,8 +64,12 @@ operador (no viene de Supabase, la elegís vos).
    SUPABASE_URL = "https://TU-PROYECTO.supabase.co"
    SUPABASE_KEY = "tu clave anon/publishable"
    SUPABASE_SERVICE_KEY = "tu clave service_role"
-   ADMIN_PASSWORD = "la contraseña de operador que elegiste"
+   ADMIN_PASSWORD = "contraseña de respaldo del operador"
    ```
+
+   `ADMIN_PASSWORD` es sólo el acceso de respaldo, para entrar la primera vez
+   y poder correr `migration_operadores.sql`, que es la que crea tu usuario
+   de operador de verdad ([sección 2.1](#21-crear-el-usuario-de-operador)).
 
 5. Deploy. La primera carga tarda unos minutos.
 
@@ -89,14 +93,38 @@ Desde la portada (`/inicio`), arriba a la derecha, están los accesos a las
 tres pantallas: **Campañas**, **Gestión** y **Administración**.
 
 - **Operador**: entrá a `/admin-campanas`, o con el botón **"Administración"**
-  de la portada. Ingresá la contraseña de operador (`ADMIN_PASSWORD`).
+  de la portada. Ingresá tu **usuario y contraseña** de operador (los que
+  definiste al correr `migration_operadores.sql` — ver
+  [sección 2.1](#21-crear-el-usuario-de-operador)).
 - **Encargado de campaña**: entrá a `/panel-de-gestion`, o con el botón
   **"Gestión"**, e ingresá el usuario y la contraseña que el operador creó
   para tu campaña.
 
+Dentro de cualquiera de los dos paneles, los botones de arriba a la derecha
+te devuelven a la portada.
+
 Que el enlace al panel de operador esté a la vista no lo deja expuesto: lo
 que lo protege es la contraseña. El tablero público de cada campaña —el que
 se comparte con quien dona— no muestra ese acceso.
+
+### 2.1. Crear el usuario de operador
+
+El acceso de operador vive en la tabla `operators` de la base, con el mismo
+esquema que las campañas: usuario único y contraseña hasheada.
+
+1. Abrí el **SQL Editor** de Supabase.
+2. Pegá el contenido de `migration_operadores.sql`, reemplazando
+   `<tu-usuario>` y `<TU_CONTRASENA>` por los que quieras.
+3. Ejecutalo. Se puede correr más de una vez sin duplicar nada.
+
+Para agregar otro operador más adelante, corré sólo el `insert` de ese
+archivo con los datos nuevos.
+
+> **Mientras no corras esta migración**, el panel sigue abriéndose con el
+> secreto `ADMIN_PASSWORD` y el usuario que escribas se ignora. Es a
+> propósito: así actualizar la app no te deja afuera de tu propio panel
+> mientras encontrás el momento de correr el SQL. En cuanto la tabla existe,
+> `ADMIN_PASSWORD` deja de servir para entrar.
 
 ---
 
