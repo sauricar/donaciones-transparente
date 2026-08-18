@@ -475,6 +475,51 @@ def render_campaign_settings():
     render_campaign_texts_form(actual)
     st.divider()
     render_campaign_photo_form(actual)
+    st.divider()
+    render_estado_traduccion(campaign)
+
+
+def render_estado_traduccion(campaign: dict):
+    """Estado del inglés de esta campaña.
+
+    Todo lo que se carga se traduce solo al guardarse, así que lo normal es que
+    acá no haya nada que hacer. Este bloque existe para el caso en que el
+    servicio de traducción esté caído justo al guardar: sin él, la única forma
+    de enterarse sería que un donante viera un artículo en español, y la única
+    forma de arreglarlo sería correr un script desde la terminal."""
+    st.markdown("**Tu campaña en inglés**")
+
+    try:
+        pendientes = db.textos_sin_traducir(campaign["id"])
+    except Exception as error:
+        st.caption(f"No se pudo revisar el estado de las traducciones: {error}")
+        return
+
+    if not pendientes:
+        st.success(
+            "Todo tu contenido está traducido al inglés. "
+            "Lo que cargues de ahora en adelante se traduce solo al guardarlo."
+        )
+        return
+
+    campos = sum(len(faltan) for _, _, faltan in pendientes)
+    st.warning(
+        f"{campos} texto(s) quedaron sin traducir, probablemente porque el "
+        "servicio de traducción no respondió al momento de guardarlos. "
+        "Mientras tanto, quien vea el tablero en inglés los verá en español."
+    )
+    if st.button("Traducir lo que falta", width="stretch"):
+        with st.spinner("Traduciendo…"):
+            traducidos, fallidos = db.traducir_pendientes(campaign["id"])
+        if traducidos:
+            st.success(f"{traducidos} texto(s) traducidos y guardados.")
+        if fallidos:
+            st.warning(
+                f"{fallidos} no se pudieron traducir ahora. Volvé a intentarlo "
+                "en un rato: no se pierde nada, quedan pendientes."
+            )
+        clear_caches()
+        st.rerun()
 
 
 def render_campaign_texts_form(actual: dict):

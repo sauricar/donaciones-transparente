@@ -246,6 +246,80 @@ def _update_traducido(tabla: str, campos: dict, aplicar_filtros):
         return aplicar_filtros(get_admin_client().table(tabla).update(_sin_columnas_en(completo))).execute()
 
 
+def _pendientes_en_tabla(tabla: str, campos: tuple[str, ...], filtro) -> list[tuple[dict, list[str]]]:
+    """Filas de esa tabla con texto en español pero sin su versión en inglés."""
+    columnas = ",".join(["id", *campos, *[f"{campo}_en" for campo in campos]])
+    try:
+        filas = filtro(get_admin_client().table(tabla).select(columnas)).limit(5000).execute().data
+    except Exception as error:
+        if _parece_columna_en_faltante(error):
+            return []  # sin migration_idioma_ingles.sql no hay nada que completar
+        raise
+
+    pendientes = []
+    for fila in filas:
+        faltan = [
+            campo
+            for campo in campos
+            if (fila.get(campo) or "").strip() and not (fila.get(f"{campo}_en") or "").strip()
+        ]
+        if faltan:
+            pendientes.append((fila, faltan))
+    return pendientes
+
+
+def textos_sin_traducir(campaign_id: str) -> list[tuple[str, dict, list[str]]]:
+    """Todo lo de una campaña que todavía no tiene su versión en inglés guardada.
+
+    Normalmente esto da vacío: cada registro se traduce al guardarse. Se llena
+    cuando el servicio de traducción estaba caído en ese momento, o con lo que
+    se cargó antes de que existiera el bilingüe."""
+    facturas = (
+        get_admin_client().table("invoices").select("id")
+        .eq("campaign_id", campaign_id).limit(5000).execute().data
+    )
+    ids_facturas = [f["id"] for f in facturas]
+
+    objetivos = [
+        ("campaigns", lambda consulta: consulta.eq("id", campaign_id)),
+        ("donations", lambda consulta: consulta.eq("campaign_id", campaign_id)),
+        ("invoices", lambda consulta: consulta.eq("campaign_id", campaign_id)),
+        ("gallery_photos", lambda consulta: consulta.eq("campaign_id", campaign_id)),
+    ]
+    if ids_facturas:
+        objetivos.append(
+            ("invoice_items", lambda consulta: consulta.in_("invoice_id", ids_facturas))
+        )
+
+    resultado = []
+    for tabla, filtro in objetivos:
+        for fila, faltan in _pendientes_en_tabla(tabla, CAMPOS_TRADUCIBLES[tabla], filtro):
+            resultado.append((tabla, fila, faltan))
+    return resultado
+
+
+def traducir_pendientes(campaign_id: str) -> tuple[int, int]:
+    """Traduce y guarda lo que haya quedado sin inglés.
+
+    Devuelve (campos traducidos, campos que siguen pendientes). Los que siguen
+    pendientes son aquellos donde el traductor volvió a fallar: se dejan vacíos
+    a propósito, para poder reintentarlos más adelante."""
+    traducidos = 0
+    fallidos = 0
+    for tabla, fila, campos in textos_sin_traducir(campaign_id):
+        nuevos = {}
+        for campo in campos:
+            traducido = translate_to_english(fila.get(campo))
+            if traducido:
+                nuevos[f"{campo}_en"] = traducido
+            else:
+                fallidos += 1
+        if nuevos:
+            get_admin_client().table(tabla).update(nuevos).eq("id", fila["id"]).execute()
+            traducidos += len(nuevos)
+    return traducidos, fallidos
+
+
 # La tabla operators sólo existe después de correr migration_operadores.sql.
 # Igual que con donation_info, el código no puede exigir que la migración vaya
 # primero: entre que se despliega esto y que alguien corre el SQL hay una

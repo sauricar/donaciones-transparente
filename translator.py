@@ -25,11 +25,20 @@ REINTENTOS = 3
 
 
 def translate_to_english(texto: str | None) -> str | None:
-    """Devuelve el texto en inglés, o None si no había nada que traducir.
+    """Devuelve el texto en inglés, o None si no se pudo traducir.
 
-    Nunca levanta una excepción: ante cualquier falla devuelve el original. Que
-    un artículo quede en español no puede impedir que se guarde una factura ni
-    tumbar el tablero de un donante."""
+    Nunca levanta una excepción: que el traductor esté caído no puede impedir
+    que se guarde una factura ni tumbar el tablero de un donante.
+
+    None significa "no hay traducción para guardar", y quien llama debe dejar la
+    columna _en vacía. Es importante que NO devuelva el texto original ante una
+    falla: guardar el español dentro de la columna inglesa haría que ese
+    registro se vea como ya traducido, y ni el tablero ni backfill_traducciones
+    volverían a intentarlo nunca — quedaría en español para siempre.
+
+    Ojo: una traducción que sale idéntica al original NO es una falla. Pasa con
+    nombres propios ('Dollarcity', 'Enalapril') y se guarda como cualquier otra,
+    justamente para no reintentarla en cada visita."""
     original = (texto or "").strip()
     if not original:
         return None
@@ -43,7 +52,7 @@ def translate_to_english(texto: str | None) -> str | None:
     try:
         from deep_translator import GoogleTranslator
     except Exception:
-        return original
+        return None
 
     for intento in range(REINTENTOS):
         try:
@@ -52,4 +61,4 @@ def translate_to_english(texto: str | None) -> str | None:
                 return resultado
         except Exception:
             time.sleep(0.8 * (intento + 1))
-    return original
+    return None

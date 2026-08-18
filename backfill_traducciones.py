@@ -92,12 +92,12 @@ def main() -> int:
                 if not original or (fila.get(f"{campo}_en") or "").strip():
                     continue
                 traducido = translate_to_english(original)
-                if traducido and traducido != original:
-                    nuevos[f"{campo}_en"] = traducido
-                elif traducido:
-                    # El traductor devolvió lo mismo (falló, o el texto ya
-                    # estaba en inglés). Se guarda igual: deja constancia de que
-                    # esta fila ya se procesó y evita reintentarla para siempre.
+                if traducido:
+                    # Puede salir idéntico al original y está bien: pasa con
+                    # nombres propios ('Dollarcity', 'Enalapril'). Guardarlo
+                    # evita reintentarlo en cada visita. Si en cambio falló,
+                    # translate_to_english devuelve None y la columna queda
+                    # vacía, para que una corrida futura lo reintente.
                     nuevos[f"{campo}_en"] = traducido
 
             if not nuevos:
