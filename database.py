@@ -31,6 +31,8 @@ import bcrypt
 import streamlit as st
 from supabase import create_client, Client
 
+from translator import translate_to_english
+
 GALLERY_BUCKET = "evidencias"
 CAMPAIGN_BASE_COLUMNS = "id,slug,name,description,is_active,created_at"
 CAMPAIGN_PUBLIC_COLUMNS = CAMPAIGN_BASE_COLUMNS + ",donation_info,photo_url"
@@ -207,8 +209,6 @@ def _con_traduccion(tabla: str, payload: dict) -> dict:
     La traducción nunca puede tumbar un guardado: translate_to_english() ya
     devuelve el original ante cualquier falla, así que lo peor que pasa es que
     una nota quede en español en las dos columnas."""
-    from views.i18n import translate_to_english
-
     completo = dict(payload)
     for campo in CAMPOS_TRADUCIBLES.get(tabla, ()):
         if campo in payload:

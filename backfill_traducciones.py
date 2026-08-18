@@ -12,14 +12,17 @@ disponible en ese momento, y con el tope de seguridad de views/i18n.py deja
 parte del contenido en español. Traducirlo una vez y guardarlo resuelve las
 tres cosas.
 
-    python backfill_traducciones.py            # traduce lo que falte
-    python backfill_traducciones.py --dry-run  # sólo muestra qué haría
+Correr con el intérprete del entorno virtual, que es donde están las
+dependencias:
+
+    .\\.venv\\Scripts\\python.exe backfill_traducciones.py --dry-run  # sólo mira
+    .\\.venv\\Scripts\\python.exe backfill_traducciones.py            # traduce
 """
 
 import sys
 
 import database as db
-from views.i18n import translate_to_english
+from translator import translate_to_english
 
 # tabla -> (campos a traducir, columna que identifica la fila)
 OBJETIVOS = {

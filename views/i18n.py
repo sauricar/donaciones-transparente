@@ -23,17 +23,27 @@ import time
 
 import streamlit as st
 
+from translator import translate_to_english
 from views.translations import GLOSARIO, TEXTOS
 
 IDIOMAS = ("es", "en")
 IDIOMA_POR_DEFECTO = "es"
 NOMBRES_IDIOMA = {"es": "Español", "en": "English"}
 
-# El endpoint gratuito de Google que usa deep-translator falla cada tanto sin
-# razón: la misma frase que revienta ahora anda al segundo intento. Medido
-# contra los datos reales de este proyecto, con tres intentos no quedó ninguna
-# sin traducir.
-_REINTENTOS = 3
+# Re-exportado para que las vistas sigan teniendo un único punto de entrada al
+# idioma; la implementación vive en translator.py, que no depende de Streamlit.
+__all__ = [
+    "IDIOMAS",
+    "get_language",
+    "localize",
+    "localize_field",
+    "prime_translations",
+    "render_language_selector",
+    "sync_language_from_url",
+    "t",
+    "translate_dynamic",
+    "translate_to_english",
+]
 
 
 def get_language() -> str:
@@ -75,40 +85,6 @@ def t(clave: str, **kwargs) -> str:
         return clave
     texto = entrada.get(get_language()) or entrada.get(IDIOMA_POR_DEFECTO) or clave
     return texto.format(**kwargs) if kwargs else texto
-
-
-def translate_to_english(texto: str | None) -> str | None:
-    """Traducción al inglés sin caché ni estado de sesión, para usar al guardar
-    un registro. Devuelve None si no hay nada que traducir, y el texto original
-    si el servicio falla — nunca levanta una excepción: que un artículo quede
-    en español no puede impedir que se guarde la factura.
-
-    Sin decorar con st.cache_data a propósito: esto corre en el camino de
-    escritura, donde cada texto es nuevo por definición y el caché sólo sumaría
-    memoria sin ahorrar una sola llamada."""
-    original = (texto or "").strip()
-    if not original:
-        return None
-
-    del_glosario = GLOSARIO.get(original.casefold())
-    if del_glosario:
-        return del_glosario
-
-    # Import adentro: si deep-translator no está instalado, la app tiene que
-    # seguir andando en español en vez de no arrancar.
-    try:
-        from deep_translator import GoogleTranslator
-    except Exception:
-        return original
-
-    for intento in range(_REINTENTOS):
-        try:
-            resultado = GoogleTranslator(source="es", target="en").translate(original)
-            if resultado:
-                return resultado
-        except Exception:
-            time.sleep(0.8 * (intento + 1))
-    return original
 
 
 # Cuánto puede tardar como mucho el precalentado de una pantalla. Lo que no

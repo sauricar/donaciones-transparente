@@ -37,6 +37,7 @@ copia desde cero.
 app.py                     Navegación, registro de páginas y selector de idioma
 database.py                Acceso a Supabase (lecturas con anon key, escrituras con service_role)
 views/theme.py             Paleta, formatos y tema de gráficas
+translator.py              Traducción al inglés (sin Streamlit: lo usan la base y el backfill)
 views/i18n.py              Idioma activo, textos fijos y traducción del contenido
 views/translations.py      Catálogo es/en y glosario del dominio
 views/*.py                 Una vista por pantalla
@@ -80,6 +81,17 @@ Versión rápida para correrlo en local — la guía completa para desplegarlo
 2. Crear un bucket de Storage **público** llamado `evidencias`.
 3. Configurar los secretos (ver abajo).
 4. `pip install -r requirements.txt` y `streamlit run app.py`.
+
+En Windows conviene un entorno virtual propio del proyecto, y **activarlo**
+antes de correr nada — si no, `python` es el del sistema y no encuentra las
+dependencias:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+streamlit run app.py
+```
 
 ### Secretos
 
