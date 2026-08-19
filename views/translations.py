@@ -54,15 +54,19 @@ TEXTOS: dict[str, dict[str, str]] = {
         "es": "Trada",
         "en": "Trada",
     },
+    # Eslogan corto, pegado al wordmark (render_brand_mark, rol "Caption" de
+    # Trada: versalitas, tracking ancho). No es una traducción libre: "Trada"
+    # es un juego con "transparente" + "donaciones", así que el inglés
+    # conserva la misma idea en vez de traducir literalmente.
+    "portada.eslogan": {
+        "es": "Donaciones Transparentes",
+        "en": "Transparent Donations",
+    },
+    # Reemplaza la descripción anterior como frase de misión de la portada
+    # (render_mission_statement, rol "Body-lg" de Trada).
     "portada.subtitulo": {
-        "es": (
-            "Personas que recibieron donaciones y muestran, peso por peso, en qué "
-            "las convirtieron. Elegí una campaña para ver su rendición de cuentas."
-        ),
-        "en": (
-            "People who received donations and show, peso by peso, what they turned "
-            "them into. Pick a campaign to see its accounting."
-        ),
+        "es": "Transformando la buena voluntad en confianza visible.",
+        "en": "Turning goodwill into visible trust.",
     },
     "portada.entre_todas": {"es": "#### Entre todas las campañas", "en": "#### Across all campaigns"},
     "portada.campanas_activas": {"es": "Campañas activas", "en": "Active campaigns"},

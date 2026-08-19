@@ -31,6 +31,7 @@ en toda la app — Ember es siempre dinero, Viridine es siempre ayuda entregada.
 Quien lo aprende una vez no lo vuelve a aprender.
 """
 
+import html
 from datetime import datetime
 
 from views.i18n import get_language
@@ -88,32 +89,94 @@ CATEGORY_OPTIONS = [
 LOGO_PATH = "assets/logo.svg"
 
 
-def render_brand_mark(size_px: int = 48, wordmark_rem: float = 2.4):
-    """Isotipo + wordmark 'TRADA', como en guidelines/brand-logo.html del
-    design system — pero con 'DA' en Ember Deep, no en Ember crudo como
-    muestra la ficha original: medido, Ember como texto grande da 2.84:1
+def _logo_data_uri() -> str:
+    """Isotipo como data URI base64, para embeberlo en el MISMO bloque de
+    HTML que el wordmark (ver render_brand_mark). Dos problemas obligaron a
+    esto, los dos comprobados en el navegador, no supuestos:
+
+    1. st.html() sanitiza con DOMPurify: un <svg> inline dentro de st.html()
+       desaparece por completo del HTML final. <img src="data:..."> sí
+       sobrevive — DOMPurify permite imágenes, sólo bloquea el <svg> vivo.
+    2. st.image() en su propia columna (st.columns) se veía bien en desktop,
+       pero Streamlit apila las columnas verticalmente por debajo de su punto
+       de quiebre responsivo — el logo terminaba separado del texto por un
+       hueco grande en pantallas angostas. Un solo <img> + <span> dentro del
+       mismo contenedor flex nunca se separa, sea cual sea el ancho."""
+    import base64
+
+    with open(LOGO_PATH, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode("ascii")
+    return f"data:image/svg+xml;base64,{encoded}"
+
+
+def render_brand_mark(tagline: str = "", size_px: int = 48, wordmark_rem: float = 2.4):
+    """Isotipo + wordmark 'TRADA' + eslogan corto, como lockup de marca.
+
+    'DA' va en Ember Deep, no en Ember crudo como muestra
+    guidelines/brand-logo.html: medido, Ember como texto grande da 2.84:1
     sobre Stardust (el fondo real de la portada), por debajo del piso de
     3:1 que exige AA incluso para texto grande — sólo pasa sobre blanco
     puro (3.46:1). Ember Deep pasa en cualquier superficie de esta app.
 
-    El isotipo va por st.image(), no inline dentro de st.html(): st.html()
-    sanitiza con DOMPurify y el elemento <svg> desaparece por completo del
-    HTML final (probado en el navegador, no es una suposición) — st.image()
-    es un camino totalmente distinto que si soporta archivos .svg locales."""
+    El eslogan usa el rol "Caption" de la escala tipográfica de Trada
+    (13px/700, +8% de tracking, versalitas) — el mismo que el sistema
+    reserva para etiquetas cortas junto a un elemento principal."""
     import streamlit as st
 
-    icon_col, word_col = st.columns([1, 5], gap="small", vertical_alignment="center")
-    with icon_col:
-        st.image(LOGO_PATH, width=size_px)
-    with word_col:
-        st.html(
-            f"""
+    tagline_html = (
+        f"""<div style="font-family:'Manrope',sans-serif;font-weight:700;"""
+        f"""font-size:13px;letter-spacing:.08em;text-transform:uppercase;"""
+        f"""color:{INK_SOFT};margin:.3rem 0 0 calc({size_px}px + .6em);">{html.escape(tagline)}</div>"""
+        if tagline else ""
+    )
+    st.html(
+        f"""
+        <div style="margin:.15rem 0 .1rem;">
+          <div style="display:flex;align-items:center;gap:.6em;">
+            <img src="{_logo_data_uri()}" width="{size_px}" height="{size_px}" alt="" />
             <span style="font-family:'Manrope',sans-serif;font-weight:800;
                          font-size:{wordmark_rem}rem;letter-spacing:-.02em;line-height:1;">
               <span style="color:{INK};">TRA</span><span style="color:{STATUS_CRITICAL};">DA</span>
             </span>
-            """
-        )
+          </div>
+          {tagline_html}
+        </div>
+        """
+    )
+
+
+def render_mission_statement(text: str):
+    """Reemplaza el st.caption() plano para el mensaje de misión de la
+    portada: el rol "Body-lg" de Trada (17px/500) — más presencia que la
+    letra pequeña y muda de st.caption, acorde a que es la frase que reemplaza
+    al título/eslogan como presentación de la plataforma."""
+    import streamlit as st
+
+    st.html(
+        f"""
+        <p style="font-family:'Manrope',sans-serif;font-weight:500;
+                  font-size:17px;line-height:1.55;color:{INK_SOFT};margin:.4rem 0 0;">
+          {html.escape(text)}
+        </p>
+        """
+    )
+
+
+def render_card_title(text: str):
+    """Título de una tarjeta de campaña con el rol "H3" de Trada
+    (20px/700, -1% de tracking) — antes era un '#####' de markdown, que no
+    corresponde a ningún escalón real de la tipografía del design system."""
+    import streamlit as st
+
+    st.html(
+        f"""
+        <div style="font-family:'Manrope',sans-serif;font-weight:700;
+                    font-size:20px;letter-spacing:-.01em;line-height:1.2;
+                    color:{INK};margin-bottom:.3rem;">
+          {html.escape(text)}
+        </div>
+        """
+    )
 
 
 def format_currency(value: float) -> str:

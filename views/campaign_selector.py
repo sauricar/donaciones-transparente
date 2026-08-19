@@ -4,7 +4,10 @@ import database as db
 from views.data import load_global_totals, show_connection_error
 from views.i18n import localize_field, prime_translations, t
 from views.public_dashboard import render_top_nav
-from views.theme import format_currency, format_number, render_brand_mark
+from views.theme import (
+    format_currency, format_number, render_brand_mark, render_card_title,
+    render_mission_statement,
+)
 
 
 def render_global_totals(campaigns: list[dict]):
@@ -39,8 +42,8 @@ def render():
     # de cada campaña, el panel de quien la gestiona y el del operador del sitio.
     render_top_nav(include_operator=True)
 
-    render_brand_mark()
-    st.caption(t("portada.subtitulo"))
+    render_brand_mark(tagline=t("portada.eslogan"))
+    render_mission_statement(t("portada.subtitulo"))
 
     try:
         campaigns = db.get_campaigns_public()
@@ -67,7 +70,7 @@ def render():
     for index, campaign in enumerate(campaigns):
         with columns[index % 3]:
             with st.container(border=True, key=f"campaign_card_{campaign['slug']}"):
-                st.markdown(f"##### {campaign['name']}")
+                render_card_title(campaign["name"])
                 st.caption(
                     localize_field(campaign, "description") or t("portada.descripcion_defecto")
                 )
