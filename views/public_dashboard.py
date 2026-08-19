@@ -8,25 +8,11 @@ import database as db
 from views.data import load_data, show_connection_error
 from views.i18n import localize_field, prime_translations, t
 from views.theme import (
-    BANNER_BG, BANNER_BORDER, FLAG_BLUE, FLAG_RED, FLAG_YELLOW, INK_SOFT,
-    NAV_ACTIVE_INK, SERIES_IMPACT, SERIES_MONEY, SURFACE, apply_chart_theme,
+    BANNER_BG, BANNER_BORDER, CARD_RADIUS, CARD_SHADOW, INK, INK_SOFT,
+    NAV_ACTIVE_INK, SERIES_IMPACT, SERIES_MONEY, apply_chart_theme,
     format_currency, format_date, format_day_short, format_decimal,
     format_number, format_signed_currency,
 )
-
-
-def flag_stripe():
-    """The one piece of custom markup left: a decorative flag rule Streamlit has
-    no native element for. It carries no data and no interaction."""
-    st.html(
-        f"""
-        <div style='display:flex;height:5px;border-radius:3px;overflow:hidden;margin:0.25rem 0 1.75rem;'>
-            <div style='flex:2;background:{FLAG_YELLOW};'></div>
-            <div style='flex:1;background:{FLAG_BLUE};'></div>
-            <div style='flex:1;background:{FLAG_RED};'></div>
-        </div>
-        """
-    )
 
 
 def render_donation_banner(campaign: dict):
@@ -47,7 +33,8 @@ def render_donation_banner(campaign: dict):
           .st-key-donation_banner {{
               background: {BANNER_BG};
               border: 1px solid {BANNER_BORDER};
-              border-radius: 12px;
+              border-radius: {CARD_RADIUS};
+              box-shadow: {CARD_SHADOW};
               padding: 0.4rem 0.2rem;
           }}
         </style>
@@ -147,11 +134,12 @@ def horizontal_bar(labels, values, value_labels, color: str, height_per_bar: int
             # "auto" keeps the label inside the bar when it fits there and moves
             # it outside otherwise. On a phone the longest bar leaves no room to
             # its right, so a fixed "outside" overflows the plot and gets cut;
-            # letting it sit inside the bar is the documented way out. The two
-            # font slots exist because the label changes background when it
-            # moves: white on the saturated fill, ink on the card.
+            # letting it sit inside the bar is the documented way out. Ink text
+            # in BOTH slots (not white-inside/ink-outside like before Trada):
+            # neither Ember nor Viridine pass contrast with white text on top,
+            # but Umbra passes on both (4.77:1 / 11.4:1 — ver views/theme.py).
             textposition="auto",
-            insidetextfont=dict(color=SURFACE, size=12),
+            insidetextfont=dict(color=INK, size=12),
             outsidetextfont=dict(color=INK_SOFT, size=12),
             constraintext="none",
             hovertemplate="%{y}<br>%{text}<extra></extra>",
@@ -786,7 +774,7 @@ def render():
     try:
         donations, invoices, items, photos = load_data(campaign["id"])
     except Exception as error:
-        st.title(f"🤝 {campaign['name']}")
+        st.title(campaign["name"])
         show_connection_error(error)
         return
 
@@ -798,12 +786,11 @@ def render():
     with st.spinner(t("comun.traduciendo")):
         prime_translations(_textos_traducibles(campaign, donations, invoices, items, photos))
 
-    st.title(f"🤝 {campaign['name']}")
+    st.title(campaign["name"])
     descripcion = localize_field(campaign, "description")
     if descripcion:
         st.caption(descripcion)
     st.caption(t("tablero.subtitulo"))
-    flag_stripe()
     render_donation_banner(campaign)
 
     total_donated = sum(d["amount"] for d in donations)

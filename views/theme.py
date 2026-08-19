@@ -1,72 +1,81 @@
 """
-Design tokens for the app. Light-surface palette built around trust and help.
+Design tokens for the app. Paleta Trada (Claude Design, proyecto
+caa604eb-5378-4ed9-9dcc-00e579377b8e), adaptada de una app móvil React a esta
+app Streamlit — ver .streamlit/config.toml para el resto de los tokens
+nativos (color, tipografía, espaciado, radios). Este archivo cubre lo que
+Streamlit no expone por config: colores de gráfica que necesitan una variante
+de texto aparte, y el CSS de tarjeta que Trada exige y Streamlit no da nativo.
 
-Palette roles (chosen by the owner, verified here — not eyeballed):
-  Azul Confianza  #1565C0 — seguridad, trazabilidad. Dinero como dinero.
-  Verde Esmeralda #2E7D32 — crecimiento, ayuda, impacto. Dinero ya convertido
-                            en artículos entregados; también metas cumplidas.
-  Naranja Suave   #F57F17 — estados intermedios / atención moderada.
-  Rojo Vinotinto  #C62828 — errores y alertas críticas, nada más.
+Roles de color (fuente: tokens/colors.css del design system):
+  Ember      #F0562D — dinero recibido. NUNCA como texto (blanco encima da
+                        3.46:1, bajo el 4.5:1 que exige AA). Sólo fill.
+  Ember Deep #B83410 — dinero como texto/glifo, acción primaria, errores.
+                        Es la variante de Ember que SÍ pasa AA como texto.
+  Viridine   #C6DEAD — ejecutado/entregado. Fill únicamente, igual que Ember:
+                        pálido, ilegible como texto (1.45:1 con blanco encima).
+  #2F5220    — "ejecutado" como texto/glifo (el propio Trada ya define esta
+                variante oscura de Viridine para texto, no se inventó acá).
+  Umbra      #221E1F — texto en general, y el único texto que SÍ es legible
+                        tanto sobre Ember (4.77:1) como sobre Viridine (11.4:1)
+                        — por eso las gráficas de barra usan texto Umbra
+                        adentro de la barra en los dos casos, nunca blanco.
 
-Measured with the data-viz checks (Machado-Oliveira-Fernandes CVD simulation,
-OKLab ΔE, WCAG) against the white card surface:
-  * blue vs green (the two chart series): CVD ΔE 23.6, normal-vision 24.4 —
-    far above the 8 / 15 floors. The semantic pairing is also the safest pairing.
-  * full 4-slot set: all checks pass; #F57F17 sits at 2.65:1 contrast, so any
-    chart using it MUST carry visible direct labels (the documented relief) —
-    every chart here already does.
-  * text ramp: INK 13.2:1, INK_SOFT 7.2:1, MUTED 5.4:1 on white — all clear the
-    4.5:1 bar for normal-size text, so captions and axis labels stay readable.
+Validado con el mismo método que ya usaba este archivo antes de Trada
+(simulación CVD Machado-Oliveira-Fernandes + distancia perceptual OKLab,
+contraste WCAG): Ember vs. Viridine da ΔE 32.2 bajo protanopia / 21.5 bajo
+deuteranopia — igual o mejor que el par azul/verde anterior (23.6), muy por
+encima del piso de 15 que ya exigía este proyecto.
 
-Colour-assignment rule this app follows: colour tracks MEANING, held constant
-across every view — blue is always money, green is always help delivered. A
-reader who learns it once is never re-taught.
+Colour-assignment rule (sin cambios): el color sigue el SIGNIFICADO, constante
+en toda la app — Ember es siempre dinero, Viridine es siempre ayuda entregada.
+Quien lo aprende una vez no lo vuelve a aprender.
 """
 
 from datetime import datetime
 
 from views.i18n import get_language
 
-# --- Surfaces & ink -------------------------------------------------------
-PAGE = "#F5F5F5"          # page plane
-SURFACE = "#FFFFFF"       # cards & chart surface
-SURFACE_SUNKEN = "#ECEFF1"  # subtle inset panels
-INK = "#263238"           # primary text (13.2:1 on white)
-INK_SOFT = "#455A64"      # secondary text (7.2:1)
-MUTED = "#546E7A"         # captions, axis labels (5.4:1)
-GRID = "#ECEFF1"          # hairline gridline
-AXIS = "#CFD8DC"          # baseline / axis rule
-BORDER = "rgba(38,50,56,0.12)"
+# --- Surfaces & ink --------------------------------------------------------
+# Stardust/White/Umbra tal cual el design system — ver tokens/colors.css.
+PAGE = "#EAEADA"            # plano de página (= backgroundColor de config.toml)
+SURFACE = "#FFFFFF"         # tarjetas y superficie de gráfica
+SURFACE_SUNKEN = "#F4F4EC"  # paneles internos sutiles (--color-paper de Trada)
+INK = "#221E1F"             # texto primario (13.6:1 sobre blanco)
+INK_SOFT = "rgba(34,30,31,.68)"   # texto secundario (5.7:1 sobre blanco)
+MUTED = "rgba(34,30,31,.68)"      # captions, ejes (5.7 / 5.2:1)
+GRID = "rgba(34,30,31,.10)"       # línea de grilla, decorativa
+AXIS = "rgba(34,30,31,.30)"       # línea base del eje
+BORDER = "rgba(34,30,31,.14)"     # borde decorativo (tooltips) — no es un control
 
-# --- Categorical slots ----------------------------------------------------
-SERIES_MONEY = "#1565C0"   # Azul Confianza — recibido, gasto, trazabilidad
-SERIES_IMPACT = "#2E7D32"  # Verde Esmeralda — ejecutado, artículos entregados
+# --- Categorical slots ------------------------------------------------------
+SERIES_MONEY = "#F0562D"   # Ember — recibido. Fill únicamente (ver cabecera).
+SERIES_IMPACT = "#C6DEAD"  # Viridine — ejecutado, artículos entregados.
 
-# Only real data series belong here. Orange and red are STATUS colours (aviso /
-# error), never series identity: darkened enough to be legible as text they sit
-# ~1.3 deltaE from each other under deuteranopia, so as two adjacent series they
-# would be indistinguishable. As status they never appear as bare swatches —
-# always with an icon and a word.
+# Sólo series de datos reales. Ver cabecera para el porqué del par.
 CATEGORICAL_PALETTE = [SERIES_MONEY, SERIES_IMPACT]
 
-# Banner "cómo aportar": verde muy claro del mismo tono de la marca. El texto
-# principal mide 11.9:1 sobre este fondo, así que resalta sin costar lectura.
-BANNER_BG = "#E8F5E9"
-BANNER_BORDER = SERIES_IMPACT
+# Banner "cómo aportar": tinte muy claro del mismo tono de Viridine — la marca
+# ya la usa para "verificado", que es justo lo que este banner comunica.
+BANNER_BG = "#EEF5E6"
+BANNER_BORDER = "#8FB56B"  # Viridine oscurecido: no es un control, es un acento
+                            # decorativo (mismo criterio que las líneas internas de
+                            # tabla) — 2.1:1 sobre el fondo del banner, suficiente
+                            # para leerse como trazo sin competir con el contenido.
 
-# Texto del botón activo en la navegación por secciones. Un paso más oscuro
-# que el verde de marca: sobre el fondo tenue del botón activo (#eaf2ea) el
-# verde de acento da 4.49:1 y éste 6.89:1.
-NAV_ACTIVE_INK = "#1B5E20"
+# Texto del botón activo en la navegación por secciones. Medido en el
+# navegador: Streamlit tiñe el fondo del botón activo con Ember Deep al 10%
+# de opacidad sobre Stardust, y Ember Deep tal cual como texto ahí da 4.23:1
+# — por debajo de 4.5:1. Un paso más oscuro de la misma familia (30% Umbra
+# mezclado) lo lleva a 6.00:1 sin inventar un color nuevo — mismo ajuste que
+# ya le había hecho este archivo al verde de la paleta anterior.
+NAV_ACTIVE_INK = "#8B2D14"
 
 # --- Status (reserved meaning; always paired with an icon or label) --------
-STATUS_WARNING = "#F57F17"
-STATUS_CRITICAL = "#C62828"
-
-# Colombian flag stripe, kept on-palette.
-FLAG_YELLOW = "#F57F17"
-FLAG_BLUE = SERIES_MONEY
-FLAG_RED = STATUS_CRITICAL
+# Trada reusa sus mismos 4 colores para los 4 estados de trazabilidad en vez
+# de inventar uno nuevo por estado (pendiente=Umbra tenue, en tránsito=Ember,
+# entregado=Viridine, atención=Ember Deep). Este código sigue la misma lógica:
+STATUS_WARNING = "#F0562D"   # Ember — atención moderada / en curso
+STATUS_CRITICAL = "#B83410"  # Ember Deep — errores y alertas críticas
 
 # Categorías base. "Otros" se mantiene siempre al final de la lista que ve el
 # usuario; las categorías propias que él cree se insertan entre medias
@@ -74,6 +83,37 @@ FLAG_RED = STATUS_CRITICAL
 CATEGORY_OPTIONS = [
     "Alimentos", "Equipos", "Herramientas", "Hogar", "Insumos Médicos", "Logística", "Otros",
 ]
+
+
+LOGO_PATH = "assets/logo.svg"
+
+
+def render_brand_mark(size_px: int = 48, wordmark_rem: float = 2.4):
+    """Isotipo + wordmark 'TRADA', como en guidelines/brand-logo.html del
+    design system — pero con 'DA' en Ember Deep, no en Ember crudo como
+    muestra la ficha original: medido, Ember como texto grande da 2.84:1
+    sobre Stardust (el fondo real de la portada), por debajo del piso de
+    3:1 que exige AA incluso para texto grande — sólo pasa sobre blanco
+    puro (3.46:1). Ember Deep pasa en cualquier superficie de esta app.
+
+    El isotipo va por st.image(), no inline dentro de st.html(): st.html()
+    sanitiza con DOMPurify y el elemento <svg> desaparece por completo del
+    HTML final (probado en el navegador, no es una suposición) — st.image()
+    es un camino totalmente distinto que si soporta archivos .svg locales."""
+    import streamlit as st
+
+    icon_col, word_col = st.columns([1, 5], gap="small", vertical_alignment="center")
+    with icon_col:
+        st.image(LOGO_PATH, width=size_px)
+    with word_col:
+        st.html(
+            f"""
+            <span style="font-family:'Manrope',sans-serif;font-weight:800;
+                         font-size:{wordmark_rem}rem;letter-spacing:-.02em;line-height:1;">
+              <span style="color:{INK};">TRA</span><span style="color:{STATUS_CRITICAL};">DA</span>
+            </span>
+            """
+        )
 
 
 def format_currency(value: float) -> str:
@@ -156,8 +196,66 @@ def apply_chart_theme(figure, height: int = None, show_legend: bool = False):
     return figure
 
 
-# NOTE: there is deliberately no CSS injection here. Every colour, border and
-# radius in this app is set natively in .streamlit/config.toml — that survives
-# Streamlit upgrades, whereas selectors into Streamlit's generated class names
-# do not. Cards are st.container(border=True) / st.metric(border=True), which
-# pick up borderColor and baseRadius from the config.
+# La sombra es "la regla que define todo el sistema" en Trada: tarjeta blanca
+# elevada sobre el fondo Stardust con sombra suave — nunca un color más
+# oscuro para simular profundidad. Streamlit no tiene token de sombra en
+# config.toml, así que esto extiende la MISMA técnica ya usada en
+# render_top_nav/render_donation_banner (public_dashboard.py): un solo
+# bloque de CSS, inyectado una vez, apuntando a un atributo estable de
+# Streamlit — nunca a una clase autogenerada sin probar antes en el navegador.
+CARD_RADIUS = "14px"
+CARD_SHADOW = "0 8px 24px rgba(34,30,31,.1)"  # valor exacto de Trada (brand-elevation)
+
+
+# st.metric(border=True) sí tiene un testid público y estable (stMetric),
+# pero st.container(border=True) NO: el borde real llega por una clase
+# "st-emotion-cache-XXXXXX" que Streamlit regenera cada build — probado en el
+# navegador, no asumido (stVerticalBlockBorderWrapper, el selector que se
+# esperaría, ni existe en esta versión). Por eso cada st.container(border=True)
+# de la app lleva su propio `key=` explícito (igual que ya hacía
+# donation_banner) y esta lista los recoge a todos en un solo lugar: agregar
+# una tarjeta nueva es agregar su key acá, no adivinar una clase.
+_CARD_KEYS_EXACTOS = (
+    # donation_banner NO va acá: administra su propio fondo/borde en
+    # render_donation_banner (public_dashboard.py) — un blanco forzado acá
+    # le pisaría el verde pálido que lo distingue como "verificado/aportar".
+    # Sólo toma prestada la sombra, directo en su propio bloque de CSS.
+    "missing_evidence_card",
+    "bulk_evidence_card",
+    "campaign_login_card",
+    "operator_login_card",
+)
+# Los que se generan en un loop (una tarjeta por campaña/foto) no tienen un
+# nombre fijo: se matchean por prefijo con un selector de atributo
+# ([class*=...]), que sí admite sub-cadena aunque `.clase` no admita comodines.
+_CARD_KEY_PREFIJOS = (
+    "campaign_card_",
+    "evidence_upload_card_",
+)
+
+
+def inject_card_shadow():
+    """Sombra + radio de tarjeta para todo contenedor con borde
+    (st.container(border=True, key=...), st.metric(border=True)). Se llama UNA
+    vez desde app.py, no por vista — evita inyectar el mismo <style> en cada
+    rerun de cada pantalla."""
+    import streamlit as st
+
+    exactos = ", ".join(f'.st-key-{k}' for k in _CARD_KEYS_EXACTOS)
+    prefijos = ", ".join(f'[class*="st-key-{p}"]' for p in _CARD_KEY_PREFIJOS)
+    st.html(
+        f"""
+        <style>
+          [data-testid="stMetric"], {exactos}, {prefijos} {{
+              /* Streamlit no rellena un contenedor con borde con
+                 secondaryBackgroundColor por su cuenta — sólo pone el borde.
+                 Sin este fondo, la tarjeta blanca de Trada se confunde con el
+                 Stardust de la página (comprobado en el navegador: quedaba
+                 transparente). */
+              background: {SURFACE} !important;
+              border-radius: {CARD_RADIUS} !important;
+              box-shadow: {CARD_SHADOW};
+          }}
+        </style>
+        """
+    )

@@ -2,8 +2,13 @@ import streamlit as st
 
 from views import admin_panel, campaign_selector, public_dashboard, super_admin
 from views.i18n import render_language_selector, sync_language_from_url
+from views.theme import inject_card_shadow
 
-st.set_page_config(page_title="Transparencia de Donaciones", page_icon="🤝", layout="wide")
+st.set_page_config(page_title="Trada", page_icon="assets/logo.svg", layout="wide")
+
+# La sombra de tarjeta es CSS compartido por toda la app: se inyecta una sola
+# vez acá, no en cada vista (ver views/theme.py.inject_card_shadow).
+inject_card_shadow()
 
 # El idioma se resuelve antes de dibujar cualquier página: los formatos de
 # moneda y fecha lo consultan mientras se arma la pantalla, así que llegar

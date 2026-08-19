@@ -342,7 +342,7 @@ def build_invoice_picker(campaign_id: str):
 def render_missing_evidence_notice(sin_evidencia):
     if not sin_evidencia:
         return
-    with st.container(border=True):
+    with st.container(border=True, key="missing_evidence_card"):
         st.markdown(f"**{len(sin_evidencia)} factura(s) todavía sin evidencia**")
         for invoice, total in sin_evidencia:
             st.caption(
@@ -377,7 +377,7 @@ def render_evidence_form():
 
     st.markdown(f"**{len(files)} foto(s) lista(s).** Poneles título y, si respaldan una compra, la factura.")
 
-    with st.container(border=True):
+    with st.container(border=True, key="bulk_evidence_card"):
         st.markdown("**Completar todas de una vez** _(opcional)_")
         bulk_cols = st.columns([3, 3, 1], vertical_alignment="bottom")
         base_title = bulk_cols[0].text_input(
@@ -398,7 +398,7 @@ def render_evidence_form():
             st.rerun()
 
     for position, file in enumerate(files, start=1):
-        with st.container(border=True):
+        with st.container(border=True, key=f"evidence_upload_card_{file.file_id}"):
             cols = st.columns([1, 3, 3], vertical_alignment="center")
             with cols[0]:
                 st.image(file.getvalue(), width=110)
@@ -674,7 +674,7 @@ def render():
 
         _, center, _ = st.columns([1, 1.2, 1])
         with center:
-            with st.container(border=True):
+            with st.container(border=True, key="campaign_login_card"):
                 with st.form("login_form"):
                     username = st.text_input("Usuario")
                     password = st.text_input("Contraseña", type="password")

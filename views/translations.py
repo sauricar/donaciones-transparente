@@ -45,9 +45,14 @@ TEXTOS: dict[str, dict[str, str]] = {
     "error.detalle_tecnico": {"es": "Detalle técnico", "en": "Technical details"},
 
     # --- Portada / selector de campañas -----------------------------------
+    # Sin emoji: Trada documenta "emoji: nunca" como regla explícita del
+    # sistema. Usado como título de respaldo en pantallas de error donde
+    # todavía no hay campaña cargada (views/public_dashboard.py); la portada
+    # en sí usa render_brand_mark() (isotipo + wordmark de dos colores), no
+    # esta clave de texto plano.
     "portada.titulo": {
-        "es": "🤝 Transparencia de Donaciones",
-        "en": "🤝 Donation Transparency",
+        "es": "Trada",
+        "en": "Trada",
     },
     "portada.subtitulo": {
         "es": (

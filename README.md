@@ -1,4 +1,4 @@
-# Tablero de Transparencia de Donaciones
+# Trada
 
 Aplicación web para que una persona que recibió donaciones pueda mostrar,
 peso por peso, en qué las convirtió: cuánto entró, qué se compró, con qué
@@ -115,17 +115,32 @@ respaldo mientras esa migración no se haya corrido.
 
 ## Decisiones de diseño
 
-**El color sigue al significado.** Azul es siempre dinero; verde es siempre
-ayuda ya entregada. Quien lo aprende una vez no lo vuelve a aprender.
+**El color sigue al significado.** Ember (naranja) es siempre dinero
+recibido; Viridine (verde pálido) es siempre ayuda ya entregada — la paleta
+del design system [Trada](#sistema-de-diseño). Quien lo aprende una vez no lo
+vuelve a aprender.
 
 **Accesibilidad medida, no estimada.** La paleta se validó con simulación de
 daltonismo (Machado-Oliveira-Fernandes) y contraste WCAG: todos los elementos
-funcionales pasan AA, y las dos series de las gráficas están a ΔE 23.6 bajo
-protanopia, muy por encima del mínimo de 8.
+funcionales pasan AA, y las dos series de las gráficas están a ΔE 32.2 bajo
+protanopia / 21.5 bajo deuteranopia, muy por encima del mínimo de 15 de este
+proyecto.
 
-**El tema es nativo.** Colores, bordes y radios se definen en
+**El tema es nativo.** Colores, tipografía, bordes y radios se definen en
 `.streamlit/config.toml`, no con CSS inyectado, para que sobrevivan a las
-actualizaciones de Streamlit. La única excepción es el banner destacado.
+actualizaciones de Streamlit. Hay dos excepciones puntuales, ambas por un
+gancho `.st-key-` estable en vez de una clase autogenerada: el banner
+destacado y la sombra de tarjeta que exige Trada (`views/theme.py`,
+`inject_card_shadow`).
+
+## Sistema de diseño
+
+La app sigue el design system **Trada**, creado con Claude Design. Los tokens
+de color/tipografía/espaciado y sus reglas de contraste están documentados con
+su razón en `views/theme.py` y `.streamlit/config.toml` — incluye los casos
+donde un valor literal del sistema no pasaba las mismas pruebas de contraste
+que ya exigía este proyecto y se ajustó (con el número exacto, en el
+comentario).
 
 **Nada de números inventados.** La sección "qué logró tu aporte" arma la
 combinación únicamente con unidades que de verdad se compraron; si el monto no

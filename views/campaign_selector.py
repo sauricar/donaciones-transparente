@@ -3,8 +3,8 @@ import streamlit as st
 import database as db
 from views.data import load_global_totals, show_connection_error
 from views.i18n import localize_field, prime_translations, t
-from views.public_dashboard import flag_stripe, render_top_nav
-from views.theme import format_currency, format_number
+from views.public_dashboard import render_top_nav
+from views.theme import format_currency, format_number, render_brand_mark
 
 
 def render_global_totals(campaigns: list[dict]):
@@ -39,9 +39,8 @@ def render():
     # de cada campaña, el panel de quien la gestiona y el del operador del sitio.
     render_top_nav(include_operator=True)
 
-    st.title(t("portada.titulo"))
+    render_brand_mark()
     st.caption(t("portada.subtitulo"))
-    flag_stripe()
 
     try:
         campaigns = db.get_campaigns_public()
@@ -67,7 +66,7 @@ def render():
     columns = st.columns(3)
     for index, campaign in enumerate(campaigns):
         with columns[index % 3]:
-            with st.container(border=True):
+            with st.container(border=True, key=f"campaign_card_{campaign['slug']}"):
                 st.markdown(f"##### {campaign['name']}")
                 st.caption(
                     localize_field(campaign, "description") or t("portada.descripcion_defecto")

@@ -1,64 +1,111 @@
 [theme]
 base = "light"
 
-# Verde Esmeralda: acciones principales. Streamlit pinta el texto de los
-# botones primarios en blanco sobre este color — blanco sobre #2E7D32 da
-# 5.13:1, suficiente para texto normal.
-primaryColor = "#2E7D32"
+# ─── Paleta Trada ───────────────────────────────────────────────────────────
+# Adoptada del design system "Trada" (Claude Design, proyecto
+# caa604eb-5378-4ed9-9dcc-00e579377b8e). Ver views/theme.py para las
+# constantes que consume el resto del código y la justificación de cada
+# desvío del valor literal del sistema de diseño.
 
-# Blanco de fondo general, gris claro para elementos secundarios (widgets,
-# bloques de código, encabezados de tabla). El orden importa: el secundario
-# debe ser el más oscuro de los dos.
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F5F5F5"
+# Stardust: fondo por defecto en TODA la app según Trada ("headers, footers,
+# nav, screen backgrounds") — la regla que define el sistema es que el fondo
+# general es claro y cálido, nunca blanco puro ni un color corporativo oscuro.
+backgroundColor = "#EAEADA"
 
-# Gris oscuro para texto: 13.2:1 sobre blanco, contraste suave que no cansa
-# la vista como el negro puro.
-textColor = "#263238"
+# White: superficie de tarjetas/inputs. Sube de tono sobre Stardust — la
+# elevación de Trada es "tarjeta blanca + sombra", nunca un color más oscuro.
+secondaryBackgroundColor = "#FFFFFF"
 
-linkColor = "#1565C0"
+textColor = "#221E1F"
 
-# 3.35:1 sobre blanco. Un borde más suave (#CFD8DC daba 1.45:1) no alcanza el
-# mínimo de 3:1 que WCAG pide para los bordes que definen un control: en un
-# campo de texto, el borde ES lo que lo identifica como campo.
-borderColor = "#78909C"
-baseRadius = "12px"
+# Streamlit SIEMPRE pinta el texto del botón primario en blanco — no hay forma
+# de pedirle el texto Umbra que exige la regla real de Trada para Ember
+# (Umbra sobre Ember: 4.77:1). Blanco sobre Ember da sólo 3.46:1 y falla AA de
+# texto normal. Blanco sobre Ember Deep sí pasa (5.94:1) y es la otra mitad de
+# la propia regla de Trada ("Ember Deep + texto claro" ya es su regla para el
+# botón destructivo) — se reutiliza para el botón primario porque Streamlit no
+# permite el tratamiento de dos tonos que Trada usa en su app móvil.
+primaryColor = "#B83410"
+
+# Ember Deep también como texto/links: 4.89:1 sobre Stardust, 5.94:1 sobre
+# blanco — es la regla de Trada tal cual ("Ember Deep: texto, links,
+# fills destructivos").
+linkColor = "#B83410"
+
+# Umbra a 55% de opacidad: el hairline literal de Trada (rgba(34,30,31,.14),
+# ~1.3:1) falla el mínimo de 3:1 que este código ya exige para un borde que
+# identifica un control (el mismo criterio que antes rechazó #CFD8DC/1.45:1).
+# 55% dando ~3.4:1 sobre Stardust y ~3.6:1 sobre blanco es el punto más cercano
+# al hairline de Trada que sigue pasando en las dos superficies.
+borderColor = "rgba(34,30,31,.55)"
+
+# 8px = radius-input de Trada (el control más común). Los 14px de tarjeta y los
+# 999px de pill van en el CSS de tarjeta de views/theme.py, porque Streamlit
+# sólo da un radio global + uno de botón, no uno por tipo de superficie.
+baseRadius = "8px"
+# 10px: medido del Button.jsx real de Trada (no de la ficha de ejemplo, que
+# muestra 14px de tarjeta). "sm" usa radius-input (8px); el tamaño por defecto
+# usa 10px fijo.
+buttonRadius = "10px"
 showWidgetBorder = true
 
-dataframeHeaderBackgroundColor = "#F5F5F5"
-# Las líneas internas de una tabla son estructura decorativa, no un control:
-# no les aplica el mínimo de 3:1, así que van suaves para no ensuciar la lectura.
-dataframeBorderColor = "#CFD8DC"
+# Blanco (superficie de tarjeta) para que la tabla se vea como el resto de los
+# contenedores con borde — Trada no distingue una tabla de una tarjeta.
+dataframeHeaderBackgroundColor = "#FFFFFF"
+# Líneas internas: estructura decorativa, no un control — no les aplica el
+# mínimo de 3:1 (mismo criterio que ya usaba este archivo).
+dataframeBorderColor = "rgba(34,30,31,.14)"
 
-# SOLO los colores que de verdad son series de datos. Naranja y rojo quedan
-# fuera a propósito: son estados (aviso / error), no identidad de serie, y
-# meterlos acá hacía que Streamlit pudiera asignarlos como serie — donde el
-# naranja oscurecido colisiona con el rojo bajo daltonismo (ΔE 1.3).
-chartCategoricalColors = ["#1565C0", "#2E7D32"]
+# SOLO las dos series de datos reales (dinero recibido vs. ya ejecutado).
+# Validado con el mismo método que ya usaba este archivo (simulación CVD
+# Machado-Oliveira-Fernandes + distancia OKLab): Ember vs. Viridine da ΔE 32.2
+# bajo protanopia / 21.5 bajo deuteranopia — igual o mejor que el par
+# azul/verde anterior (23.6), muy por encima del piso de 15 de este proyecto.
+chartCategoricalColors = ["#F0562D", "#C6DEAD"]
 
-# Estos alimentan la sintaxis :blue[...] / :green[...] de markdown, así que el
-# color semántico en el texto sale de la paleta sin una línea de CSS.
-blueColor = "#1565C0"
-greenColor = "#2E7D32"
-redColor = "#C62828"
+# "Dinero" como texto/glifo (los puntos ●): Ember Deep, nunca Ember crudo —
+# misma regla de "Ember nunca como texto" que ya aplica a los botones.
+blueColor = "#B83410"
+blueTextColor = "#B83410"
+# "Ejecutado/verificado": Viridine como fill, pero como texto/glifo se usa la
+# variante que el propio Trada ya define para eso (--color-viridine-text /
+# --state-delivered-text), porque el verde pálido crudo es ilegible como texto.
+greenColor = "#C6DEAD"
+greenTextColor = "#2F5220"
+# Ember Deep también cubre errores/estados críticos — Trada reutiliza sus
+# mismos 4 colores para los 4 estados de trazabilidad en vez de inventar uno
+# nuevo por estado; acá se sigue la misma lógica.
+redColor = "#B83410"
 
-# Sin esto Streamlit oscurece el color al usarlo como texto (el azul salía
-# #0E417C), y el punto de la tarjeta KPI dejaba de coincidir con la línea de la
-# gráfica — que es justamente lo que ese punto debe indicar. Ambos ya superan
-# 4.5:1 sobre blanco, así que fijarlos no cuesta legibilidad.
-blueTextColor = "#1565C0"
-greenTextColor = "#2E7D32"
+grayColor = "rgba(34,30,31,.68)"
+grayTextColor = "rgba(34,30,31,.68)"
 
-# El gris por defecto de Streamlit para :gray[...] se compone a #83858C sobre
-# blanco: 3.69:1, por debajo del mínimo de 4.5:1. Este pasa sobre los dos
-# fondos (5.40:1 sobre blanco, 4.95:1 sobre el gris secundario).
-grayColor = "#546E7A"
-grayTextColor = "#546E7A"
+# Ember para fondos/decorativo (fills que este código rotula aparte, como las
+# barras de gráfica); Ember Deep como su variante de texto, siguiendo la misma
+# regla de contraste que ya se aplicó al resto de la paleta.
+orangeColor = "#F0562D"
+orangeTextColor = "#B83410"
 
-# El naranja de la paleta se conserva para fondos y elementos decorativos, pero
-# como texto da 2.65:1 sobre blanco. orangeTextColor es la variante oscurecida
-# que Streamlit usa cuando el naranja es texto: 5.02:1, ya legible.
-orangeColor = "#F57F17"
-orangeTextColor = "#B45309"
+# Manrope vía Google Fonts — la misma URL que ya declara tokens/fonts.css del
+# design system. Streamlit la carga nativamente (sin descargar archivos ni
+# inyectar CSS): esto respeta la regla de este proyecto de "cero CSS salvo una
+# excepción dirigida" (ver views/theme.py).
+font = "Manrope:https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap"
+baseFontSize = 15
+baseFontWeight = 400
 
-font = "sans-serif"
+# Escala de Trada: Display 56/800 no tiene equivalente h1-h6 directo, así que
+# h1 toma el siguiente escalón (H1 34/800). h4-h6 no están definidos por Trada
+# (que sólo documenta 3 niveles de título): se interpolan bajando hacia los
+# tamaños de cuerpo/caption ya definidos, en vez de inventar valores nuevos.
+headingFontSizes = ["34px", "26px", "20px", "17px", "15px", "13px"]
+headingFontWeights = [800, 700, 700, 700, 700, 700]
+
+[theme.sidebar]
+# La barra lateral (selector de idioma) es "nav" en el vocabulario de Trada:
+# Stardust, igual que el resto del chrome — separada del contenido sólo por
+# el borde (showSidebarBorder), nunca por un color distinto.
+backgroundColor = "#EAEADA"
+secondaryBackgroundColor = "#FFFFFF"
+borderColor = "rgba(34,30,31,.55)"
+showSidebarBorder = true

@@ -147,7 +147,7 @@ def render():
     if not st.session_state.is_operator:
         _, center, _ = st.columns([1, 1.2, 1])
         with center:
-            with st.container(border=True):
+            with st.container(border=True, key="operator_login_card"):
                 with st.form("operator_login_form"):
                     username = st.text_input("Usuario")
                     password = st.text_input("Contraseña", type="password")
